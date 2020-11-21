@@ -21,9 +21,9 @@ type Service interface {
 
 type Pack interface {
 	Len() int
-	GetID(i int) string
 	Swap(i int, j int)
 	Repack(to int) interface{}
+	IDString(i int) string
 }
 
 type Runner interface {
@@ -70,7 +70,7 @@ func (self *Runner_t) Add(ts time.Time, srv Service, in Pack) (num int, err erro
 	for num <= last {
 		if _, ok = self.cx.Push(
 			ts,
-			srv.Name()+in.GetID(num),
+			srv.Name()+in.IDString(num),
 			func() interface{} { return nil },
 			func(interface{}) interface{} { return nil },
 		); ok {
@@ -85,7 +85,7 @@ func (self *Runner_t) Add(ts time.Time, srv Service, in Pack) (num int, err erro
 		case self.in <- msg_t{srv: srv, msg: in.Repack(num), num: num}:
 		default:
 			for i := 0; i < num; i++ {
-				self.cx.Remove(ts, srv.Name()+in.GetID(i))
+				self.cx.Remove(ts, srv.Name()+in.IDString(i))
 			}
 			num, err = 0, fmt.Errorf("OVERFLOW")
 		}
