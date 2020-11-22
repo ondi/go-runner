@@ -13,10 +13,10 @@ import (
 )
 
 type Service interface {
-	Name() string
-	Do(msg interface{}) error
-	Save(msg interface{}) error
-	Error(msg interface{}, err error)
+	ServiceName() string
+	ServiceDo(msg interface{}) error
+	ServiceSave(msg interface{}) error
+	ServiceError(err error)
 }
 
 type Pack interface {
@@ -70,7 +70,7 @@ func (self *Runner_t) Add(ts time.Time, srv Service, in Pack) (num int, err erro
 	for num <= last {
 		if _, ok = self.cx.Push(
 			ts,
-			srv.Name()+in.IDString(num),
+			srv.ServiceName()+in.IDString(num),
 			func() interface{} { return nil },
 			func(interface{}) interface{} { return nil },
 		); ok {
@@ -85,7 +85,7 @@ func (self *Runner_t) Add(ts time.Time, srv Service, in Pack) (num int, err erro
 		case self.in <- msg_t{srv: srv, msg: in.Repack(num), num: num}:
 		default:
 			for i := 0; i < num; i++ {
-				self.cx.Remove(ts, srv.Name()+in.IDString(i))
+				self.cx.Remove(ts, srv.ServiceName()+in.IDString(i))
 			}
 			num, err = 0, fmt.Errorf("OVERFLOW")
 		}
@@ -98,15 +98,15 @@ func (self *Runner_t) run() {
 	defer self.wg.Done()
 	var err error
 	var ts time.Time
-	for v := range self.in {
+	for msg := range self.in {
 		ts = time.Now()
-		if err = v.srv.Do(v.msg); err == nil {
-			err = v.srv.Save(v.msg)
+		if err = msg.srv.ServiceDo(msg.msg); err == nil {
+			err = msg.srv.ServiceSave(msg.msg)
 		}
 		if err != nil {
-			v.srv.Error(v.msg, err)
+			msg.srv.ServiceError(err)
 		}
-		self.st(v.srv.Name(), time.Since(ts), v.num)
+		self.st(msg.srv.ServiceName(), time.Since(ts), msg.num)
 	}
 }
 
