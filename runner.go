@@ -32,29 +32,38 @@ type Runner interface {
 	Close()
 }
 
-type Stat func(service string, diff time.Duration, num int)
-
-func NoStat(string, time.Duration, int) {}
-
 type msg_t struct {
 	srv Service
 	msg interface{}
 	num int
 }
 
+type StatFn func(service string, diff time.Duration, num int)
+
 type Runner_t struct {
 	mx sync.Mutex
 	cx *cache.Cache_t
 	in chan msg_t
-	st Stat
+	st StatFn
 	wg sync.WaitGroup
 }
 
-func New(threads int, queue int, limit int, ttl time.Duration, stat Stat) (self *Runner_t) {
+type Options func(self *Runner_t)
+
+func Stat(st StatFn) Options {
+	return func(self *Runner_t) {
+		self.st = st
+	}
+}
+
+func New(threads int, queue int, limit int, ttl time.Duration, opt ...Options) (self *Runner_t) {
 	self = &Runner_t{
 		cx: cache.New(limit, ttl, cache.Drop),
 		in: make(chan msg_t, queue),
-		st: stat,
+		st: func(string, time.Duration, int) {},
+	}
+	for _, v := range opt {
+		v(self)
 	}
 	for i := 0; i < threads; i++ {
 		self.wg.Add(1)
