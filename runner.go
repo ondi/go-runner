@@ -100,10 +100,9 @@ func (self *Runner_t) run() {
 	var ts time.Time
 	for msg := range self.in {
 		ts = time.Now()
-		if err = msg.srv.ServiceDo(msg.msg); err == nil {
-			err = msg.srv.ServiceSave(msg.msg)
-		}
-		if err != nil {
+		if err = msg.srv.ServiceDo(msg.msg); err != nil {
+			msg.srv.ServiceError(err)
+		} else if err = msg.srv.ServiceSave(msg.msg); err != nil {
 			msg.srv.ServiceError(err)
 		}
 		self.st(msg.srv.ServiceName(), time.Since(ts), msg.num)
