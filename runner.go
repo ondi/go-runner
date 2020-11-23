@@ -22,7 +22,7 @@ type Service interface {
 type Pack interface {
 	Len() int
 	Swap(i int, j int)
-	Repack(to int) interface{}
+	Repack(to int) Pack
 	IDString(i int) string
 }
 
