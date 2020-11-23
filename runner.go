@@ -16,7 +16,7 @@ type Service interface {
 	ServiceName() string
 	ServiceDo(msg interface{}) error
 	ServiceSave(msg interface{}) error
-	ServiceError(err error)
+	ServiceError(msg interface{}, err error)
 }
 
 type Pack interface {
@@ -110,9 +110,9 @@ func (self *Runner_t) run() {
 	for msg := range self.in {
 		ts = time.Now()
 		if err = msg.srv.ServiceDo(msg.msg); err != nil {
-			msg.srv.ServiceError(err)
+			msg.srv.ServiceError(msg.msg, err)
 		} else if err = msg.srv.ServiceSave(msg.msg); err != nil {
-			msg.srv.ServiceError(err)
+			msg.srv.ServiceError(msg.msg, err)
 		}
 		self.st(msg.srv.ServiceName(), time.Since(ts), msg.num)
 	}
