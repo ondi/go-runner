@@ -31,7 +31,8 @@ type Pack interface {
 }
 
 type Runner interface {
-	Add(ts time.Time, srv Service, in Pack) (num int, err error)
+	AddCreate(ts time.Time, srv Service, in Pack) (num int, err error)
+	AddPush(ts time.Time, srv Service, in Pack) (num int, err error)
 	AddSimple(srv Service, in Simple) (err error)
 	SizeFilter(ts time.Time) int
 	Size() int
@@ -77,7 +78,37 @@ func New(threads int, queue int, limit int, ttl time.Duration, opt ...Options) (
 	return
 }
 
-func (self *Runner_t) Add(ts time.Time, srv Service, in Pack) (num int, err error) {
+func (self *Runner_t) AddCreate(ts time.Time, srv Service, in Pack) (num int, err error) {
+	var ok bool
+	last := in.Len() - 1
+
+	self.mx.Lock()
+	for num <= last {
+		if _, ok = self.cx.Create(
+			ts,
+			srv.ServiceName()+in.IDString(num),
+			func() interface{} { return nil },
+			func(interface{}) interface{} { return nil },
+		); ok {
+			num++
+		} else {
+			in.Swap(num, last)
+			last--
+		}
+	}
+	if num > 0 {
+		if err = self.AddSimple(srv, in.Repack(num)); err != nil {
+			for last = 0; last < num; last++ {
+				self.cx.Remove(ts, srv.ServiceName()+in.IDString(last))
+			}
+			num = 0
+		}
+	}
+	self.mx.Unlock()
+	return
+}
+
+func (self *Runner_t) AddPush(ts time.Time, srv Service, in Pack) (num int, err error) {
 	var ok bool
 	last := in.Len() - 1
 
