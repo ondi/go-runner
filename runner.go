@@ -19,8 +19,12 @@ type Service interface {
 	ServiceError(msg interface{}, err error)
 }
 
-type Pack interface {
+type Simple interface {
 	Len() int
+}
+
+type Pack interface {
+	Simple
 	Swap(i int, j int)
 	Repack(to int) Pack
 	IDString(i int) string
@@ -28,13 +32,14 @@ type Pack interface {
 
 type Runner interface {
 	Add(ts time.Time, srv Service, in Pack) (num int, err error)
+	AddSimple(srv Service, in Simple) (num int, err error)
 	Size() (filter int, queue int)
 	Close()
 }
 
 type msg_t struct {
 	srv  Service
-	pack Pack
+	pack Simple
 }
 
 type StatFn func(service string, diff time.Duration, num int)
@@ -89,16 +94,22 @@ func (self *Runner_t) Add(ts time.Time, srv Service, in Pack) (num int, err erro
 		}
 	}
 	if num > 0 {
-		select {
-		case self.in <- msg_t{srv: srv, pack: in.Repack(num)}:
-		default:
+		if num, err = self.AddSimple(srv, in.Repack(num)); err != nil {
 			for i := 0; i < num; i++ {
 				self.cx.Remove(ts, srv.ServiceName()+in.IDString(i))
 			}
-			num, err = 0, fmt.Errorf("OVERFLOW")
 		}
 	}
 	self.mx.Unlock()
+	return
+}
+
+func (self *Runner_t) AddSimple(srv Service, in Simple) (num int, err error) {
+	select {
+	case self.in <- msg_t{srv: srv, pack: in}:
+	default:
+		num, err = 0, fmt.Errorf("OVERFLOW")
+	}
 	return
 }
 
