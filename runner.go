@@ -33,9 +33,8 @@ type Runner interface {
 }
 
 type msg_t struct {
-	srv Service
-	msg interface{}
-	num int
+	srv  Service
+	pack Pack
 }
 
 type StatFn func(service string, diff time.Duration, num int)
@@ -91,7 +90,7 @@ func (self *Runner_t) Add(ts time.Time, srv Service, in Pack) (num int, err erro
 	}
 	if num > 0 {
 		select {
-		case self.in <- msg_t{srv: srv, msg: in.Repack(num), num: num}:
+		case self.in <- msg_t{srv: srv, pack: in.Repack(num)}:
 		default:
 			for i := 0; i < num; i++ {
 				self.cx.Remove(ts, srv.ServiceName()+in.IDString(i))
@@ -109,12 +108,12 @@ func (self *Runner_t) run() {
 	var ts time.Time
 	for msg := range self.in {
 		ts = time.Now()
-		if err = msg.srv.ServiceDo(msg.msg); err != nil {
-			msg.srv.ServiceError(msg.msg, err)
-		} else if err = msg.srv.ServiceSave(msg.msg); err != nil {
-			msg.srv.ServiceError(msg.msg, err)
+		if err = msg.srv.ServiceDo(msg.pack); err != nil {
+			msg.srv.ServiceError(msg.pack, err)
+		} else if err = msg.srv.ServiceSave(msg.pack); err != nil {
+			msg.srv.ServiceError(msg.pack, err)
 		}
-		self.st(msg.srv.ServiceName(), time.Since(ts), msg.num)
+		self.st(msg.srv.ServiceName(), time.Since(ts), msg.pack.Len())
 	}
 }
 
