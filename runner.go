@@ -33,8 +33,8 @@ type Pack interface {
 type Runner interface {
 	Add(ts time.Time, srv Service, in Pack) (num int, err error)
 	AddSimple(srv Service, in Simple) (num int, err error)
-	SizeF(ts time.Time) int
-	SizeQ() int
+	SizeFilter(ts time.Time) int
+	Size() int
 	Close()
 }
 
@@ -129,14 +129,14 @@ func (self *Runner_t) run() {
 	}
 }
 
-func (self *Runner_t) SizeF(ts time.Time) (filter int) {
+func (self *Runner_t) SizeFilter(ts time.Time) (filter int) {
 	self.mx.Lock()
 	filter = self.cx.Size(ts)
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) SizeQ(ts time.Time) (queue int) {
+func (self *Runner_t) Size() (queue int) {
 	return len(self.in)
 }
 
