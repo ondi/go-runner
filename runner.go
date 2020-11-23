@@ -78,9 +78,10 @@ func New(threads int, queue int, limit int, ttl time.Duration, opt ...Options) (
 }
 
 func (self *Runner_t) Add(ts time.Time, srv Service, in Pack) (num int, err error) {
-	self.mx.Lock()
 	var ok bool
 	last := in.Len() - 1
+
+	self.mx.Lock()
 	for num <= last {
 		if _, ok = self.cx.Push(
 			ts,
@@ -96,8 +97,8 @@ func (self *Runner_t) Add(ts time.Time, srv Service, in Pack) (num int, err erro
 	}
 	if num > 0 {
 		if err = self.AddSimple(srv, in.Repack(num)); err != nil {
-			for i := 0; i < num; i++ {
-				self.cx.Remove(ts, srv.ServiceName()+in.IDString(i))
+			for last = 0; last < num; last++ {
+				self.cx.Remove(ts, srv.ServiceName()+in.IDString(last))
 			}
 			num = 0
 		}
