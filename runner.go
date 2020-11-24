@@ -23,21 +23,25 @@ type Service interface {
 	ServiceError(msg interface{}, err error)
 }
 
-type Simple interface {
+type PackSimple interface {
 	Len() int
 }
 
+type PackIDString interface {
+	PackSimple
+	IDString(i int) string
+}
+
 type Pack interface {
-	Simple
+	PackIDString
 	Swap(i int, j int)
 	Repack(to int) Pack
-	IDString(i int) string
 }
 
 type Runner interface {
 	Add(ts time.Time, srv Service, in Pack) (num int, err error)
-	Del(ts time.Time, srv Name, in Pack) (num int)
-	AddSimple(srv Service, in Simple) (err error)
+	Del(ts time.Time, srv Name, in PackIDString) (num int)
+	AddSimple(srv Service, in PackSimple) (err error)
 	SizeFilter(ts time.Time) int
 	Size() int
 	Close()
@@ -45,7 +49,7 @@ type Runner interface {
 
 type msg_t struct {
 	srv  Service
-	pack Simple
+	pack PackSimple
 }
 
 type StatFn func(service string, diff time.Duration, num int)
@@ -111,7 +115,7 @@ func (self *Runner_t) Add(ts time.Time, srv Service, in Pack) (i int, err error)
 	return
 }
 
-func (self *Runner_t) Del(ts time.Time, srv Name, in Pack) (num int) {
+func (self *Runner_t) Del(ts time.Time, srv Name, in PackIDString) (num int) {
 	var ok bool
 	self.mx.Lock()
 	for i := 0; i < in.Len(); i++ {
@@ -126,7 +130,7 @@ func (self *Runner_t) Del(ts time.Time, srv Name, in Pack) (num int) {
 	return
 }
 
-func (self *Runner_t) AddSimple(srv Service, in Simple) error {
+func (self *Runner_t) AddSimple(srv Service, in PackSimple) error {
 	select {
 	case self.in <- msg_t{srv: srv, pack: in}:
 	default:
