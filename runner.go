@@ -111,7 +111,7 @@ func (self *Runner_t) Add(ts time.Time, srv Service, in Pack) (i int, err error)
 	return
 }
 
-func (self *Runner_t) Del(ts time.Time, srv Service, in Pack) (num int) {
+func (self *Runner_t) Del(ts time.Time, srv Name, in Pack) (num int) {
 	var ok bool
 	self.mx.Lock()
 	for i := 0; i < in.Len(); i++ {
