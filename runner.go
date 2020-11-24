@@ -12,8 +12,12 @@ import (
 	cache "github.com/ondi/go-ttl-cache"
 )
 
-type Service interface {
+type Name interface {
 	ServiceName() string
+}
+
+type Service interface {
+	Name
 	ServiceDo(msg interface{}) error
 	ServiceSave(msg interface{}) error
 	ServiceError(msg interface{}, err error)
@@ -32,7 +36,7 @@ type Pack interface {
 
 type Runner interface {
 	Add(ts time.Time, srv Service, in Pack) (num int, err error)
-	Del(ts time.Time, srv Service, in Pack) (num int)
+	Del(ts time.Time, srv Name, in Pack) (num int)
 	AddSimple(srv Service, in Simple) (err error)
 	SizeFilter(ts time.Time) int
 	Size() int
