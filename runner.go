@@ -24,7 +24,7 @@ type PackID interface {
 type PackFilter interface {
 	PackID
 	Swap(i int, j int)
-	Repack(to int) Pack
+	Repack(to int) PackFilter
 }
 
 type Name interface {
