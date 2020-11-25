@@ -12,72 +12,55 @@ import (
 	cache "github.com/ondi/go-ttl-cache"
 )
 
+type Pack interface {
+	Len() int
+}
+
+type PackID interface {
+	Pack
+	IDString(i int) string
+}
+
+type PackFilter interface {
+	PackID
+	Swap(i int, j int)
+	Repack(to int) Pack
+}
+
 type Name interface {
 	ServiceName() string
 }
 
 type Service interface {
 	Name
-	ServiceDo(msg interface{}) error
-	ServiceSave(msg interface{}) error
-	ServiceError(msg interface{}, err error)
-}
-
-type PackSimple interface {
-	Len() int
-}
-
-type PackIDString interface {
-	PackSimple
-	IDString(i int) string
-}
-
-type Pack interface {
-	PackIDString
-	Swap(i int, j int)
-	Repack(to int) Pack
+	ServiceDo(msg Pack)
 }
 
 type Runner interface {
-	Add(ts time.Time, srv Service, in Pack) (num int, err error)
-	Del(ts time.Time, srv Name, in PackIDString) (num int)
-	AddSimple(srv Service, in PackSimple) (err error)
+	AddFilter(ts time.Time, srv Service, in PackFilter) (num int, err error)
+	DelFilter(ts time.Time, srv Name, in PackID) (num int)
+	AddPack(srv Service, in Pack) (err error)
 	SizeFilter(ts time.Time) int
-	Size() int
+	SizeQueue() int
 	Close()
 }
 
 type msg_t struct {
 	srv  Service
-	pack PackSimple
+	pack Pack
 }
-
-type StatFn func(service string, diff time.Duration, num int)
 
 type Runner_t struct {
 	mx sync.Mutex
 	cx *cache.Cache_t
 	in chan msg_t
-	st StatFn
 	wg sync.WaitGroup
 }
 
-type Options func(self *Runner_t)
-
-func Stat(st StatFn) Options {
-	return func(self *Runner_t) {
-		self.st = st
-	}
-}
-
-func New(threads int, queue int, limit int, ttl time.Duration, opt ...Options) (self *Runner_t) {
+func New(threads int, queue int, limit int, ttl time.Duration) (self *Runner_t) {
 	self = &Runner_t{
 		cx: cache.New(limit, ttl, cache.Drop),
 		in: make(chan msg_t, queue),
-		st: func(string, time.Duration, int) {},
-	}
-	for _, v := range opt {
-		v(self)
 	}
 	for i := 0; i < threads; i++ {
 		self.wg.Add(1)
@@ -86,7 +69,7 @@ func New(threads int, queue int, limit int, ttl time.Duration, opt ...Options) (
 	return
 }
 
-func (self *Runner_t) Add(ts time.Time, srv Service, in Pack) (i int, err error) {
+func (self *Runner_t) AddFilter(ts time.Time, srv Service, in PackFilter) (i int, err error) {
 	var ok bool
 	last := in.Len() - 1
 	self.mx.Lock()
@@ -104,7 +87,7 @@ func (self *Runner_t) Add(ts time.Time, srv Service, in Pack) (i int, err error)
 		}
 	}
 	if i > 0 {
-		if err = self.AddSimple(srv, in.Repack(i)); err != nil {
+		if err = self.AddPack(srv, in.Repack(i)); err != nil {
 			for last = 0; last < i; last++ {
 				self.cx.Remove(ts, srv.ServiceName()+in.IDString(last))
 			}
@@ -115,7 +98,7 @@ func (self *Runner_t) Add(ts time.Time, srv Service, in Pack) (i int, err error)
 	return
 }
 
-func (self *Runner_t) Del(ts time.Time, srv Name, in PackIDString) (num int) {
+func (self *Runner_t) DelFilter(ts time.Time, srv Name, in PackID) (res int) {
 	var ok bool
 	self.mx.Lock()
 	for i := 0; i < in.Len(); i++ {
@@ -123,14 +106,14 @@ func (self *Runner_t) Del(ts time.Time, srv Name, in PackIDString) (num int) {
 			ts,
 			srv.ServiceName()+in.IDString(i),
 		); ok {
-			num++
+			res++
 		}
 	}
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) AddSimple(srv Service, in PackSimple) error {
+func (self *Runner_t) AddPack(srv Service, in Pack) error {
 	select {
 	case self.in <- msg_t{srv: srv, pack: in}:
 	default:
@@ -141,27 +124,19 @@ func (self *Runner_t) AddSimple(srv Service, in PackSimple) error {
 
 func (self *Runner_t) run() {
 	defer self.wg.Done()
-	var err error
-	var ts time.Time
-	for msg := range self.in {
-		ts = time.Now()
-		if err = msg.srv.ServiceDo(msg.pack); err != nil {
-			msg.srv.ServiceError(msg.pack, err)
-		} else if err = msg.srv.ServiceSave(msg.pack); err != nil {
-			msg.srv.ServiceError(msg.pack, err)
-		}
-		self.st(msg.srv.ServiceName(), time.Since(ts), msg.pack.Len())
+	for v := range self.in {
+		v.srv.ServiceDo(v.pack)
 	}
 }
 
-func (self *Runner_t) SizeFilter(ts time.Time) (filter int) {
+func (self *Runner_t) SizeFilter(ts time.Time) (res int) {
 	self.mx.Lock()
-	filter = self.cx.Size(ts)
+	res = self.cx.Size(ts)
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) Size() (queue int) {
+func (self *Runner_t) SizeQueue() int {
 	return len(self.in)
 }
 
