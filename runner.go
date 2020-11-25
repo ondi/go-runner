@@ -24,7 +24,7 @@ type PackID interface {
 type PackFilter interface {
 	PackID
 	Swap(i int, j int)
-	Repack(to int) PackFilter
+	Repack(a int, b int) PackFilter
 }
 
 type Name interface {
@@ -87,7 +87,7 @@ func (self *Runner_t) AddFilter(ts time.Time, srv Service, in PackFilter) (i int
 		}
 	}
 	if i > 0 {
-		if err = self.AddPack(srv, in.Repack(i)); err != nil {
+		if err = self.AddPack(srv, in.Repack(0, i)); err != nil {
 			for last = 0; last < i; last++ {
 				self.cx.Remove(ts, srv.ServiceName()+in.IDString(last))
 			}
