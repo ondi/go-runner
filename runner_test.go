@@ -61,6 +61,6 @@ func Test_add03(t *testing.T) {
 	ts := time.Now()
 	total, err := r.AddFilter(ts, s, &MyPack_t{id: "1"}, &MyPack_t{id: "2"}, &MyPack_t{id: "3"})
 	assert.Equal(t, err.Error(), "OVERFLOW")
-	assert.Equal(t, total, 2)
-	assert.Equal(t, r.SizeFilter(ts), 2)
+	assert.Equal(t, total, 0)
+	assert.Equal(t, r.SizeFilter(ts), 0)
 }

@@ -91,18 +91,18 @@ func (self *Runner_t) __filter(ts time.Time, srv Service, in PackFilter) (i int)
 
 func (self *Runner_t) AddFilter(ts time.Time, srv Service, in ...PackFilter) (total int, err error) {
 	self.mx.Lock()
+	if len(in) > cap(self.in)-len(self.in) {
+		self.mx.Unlock()
+		err = fmt.Errorf("OVERFLOW")
+		return
+	}
+	// repack all before processing
 	for _, pack := range in {
-		self.__filter(ts, srv, pack)
+		total += self.__filter(ts, srv, pack)
 	}
 	for _, pack := range in {
 		if pack.Len() > 0 {
-			if err = self.AddPack(srv, pack); err != nil {
-				for i := 0; i < pack.Len(); i++ {
-					self.cx.Remove(ts, srv.ServiceName()+pack.IDString(i))
-				}
-				break
-			}
-			total += pack.Len()
+			self.in <- msg_t{srv: srv, pack: pack}
 		}
 	}
 	self.mx.Unlock()
@@ -110,13 +110,10 @@ func (self *Runner_t) AddFilter(ts time.Time, srv Service, in ...PackFilter) (to
 }
 
 func (self *Runner_t) DelFilter(ts time.Time, srv Name, in PackID) (res int) {
-	var ok bool
 	self.mx.Lock()
+	var ok bool
 	for i := 0; i < in.Len(); i++ {
-		if _, ok = self.cx.Remove(
-			ts,
-			srv.ServiceName()+in.IDString(i),
-		); ok {
+		if _, ok = self.cx.Remove(ts, srv.ServiceName()+in.IDString(i)); ok {
 			res++
 		}
 	}
@@ -124,13 +121,15 @@ func (self *Runner_t) DelFilter(ts time.Time, srv Name, in PackID) (res int) {
 	return
 }
 
-func (self *Runner_t) AddPack(srv Service, in Pack) error {
+func (self *Runner_t) AddPack(srv Service, in Pack) (err error) {
+	self.mx.Lock()
 	select {
 	case self.in <- msg_t{srv: srv, pack: in}:
 	default:
-		return fmt.Errorf("OVERFLOW")
+		err = fmt.Errorf("OVERFLOW")
 	}
-	return nil
+	self.mx.Unlock()
+	return
 }
 
 func (self *Runner_t) run() {
