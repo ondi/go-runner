@@ -24,7 +24,7 @@ type PackID interface {
 type PackFilter interface {
 	PackID
 	Swap(i int, j int)
-	Repack(to int) PackFilter
+	Repack(to int)
 }
 
 type Name interface {
@@ -37,7 +37,7 @@ type Service interface {
 }
 
 type Runner interface {
-	AddFilter(ts time.Time, srv Service, in PackFilter) (num int, err error)
+	AddFilter(ts time.Time, srv Service, in ...PackFilter) (num int, err error)
 	DelFilter(ts time.Time, srv Name, in PackID) (num int)
 	AddPack(srv Service, in Pack) (err error)
 	SizeFilter(ts time.Time) int
@@ -69,10 +69,9 @@ func New(threads int, queue int, limit int, ttl time.Duration) (self *Runner_t) 
 	return
 }
 
-func (self *Runner_t) AddFilter(ts time.Time, srv Service, in PackFilter) (i int, err error) {
+func (self *Runner_t) __filter(ts time.Time, srv Service, in PackFilter) (i int) {
 	var ok bool
 	last := in.Len() - 1
-	self.mx.Lock()
 	for i <= last {
 		if _, ok = self.cx.Push(
 			ts,
@@ -86,12 +85,24 @@ func (self *Runner_t) AddFilter(ts time.Time, srv Service, in PackFilter) (i int
 			last--
 		}
 	}
-	if i > 0 {
-		if err = self.AddPack(srv, in.Repack(i)); err != nil {
-			for last = 0; last < i; last++ {
-				self.cx.Remove(ts, srv.ServiceName()+in.IDString(last))
+	in.Repack(i)
+	return
+}
+
+func (self *Runner_t) AddFilter(ts time.Time, srv Service, in ...PackFilter) (total int, err error) {
+	self.mx.Lock()
+	for _, pack := range in {
+		self.__filter(ts, srv, pack)
+	}
+	for _, pack := range in {
+		if pack.Len() > 0 {
+			if err = self.AddPack(srv, pack); err != nil {
+				for i := 0; i < pack.Len(); i++ {
+					self.cx.Remove(ts, srv.ServiceName()+pack.IDString(i))
+				}
+				break
 			}
-			i = 0
+			total += pack.Len()
 		}
 	}
 	self.mx.Unlock()
