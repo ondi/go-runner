@@ -21,10 +21,10 @@ type PackID interface {
 	IDString(i int) string
 }
 
-type PackFilter interface {
+type Repack interface {
 	PackID
 	Swap(i int, j int)
-	Repack(to int)
+	Resize(i int)
 }
 
 type Name interface {
@@ -37,9 +37,10 @@ type Service interface {
 }
 
 type Runner interface {
-	AddFilter(ts time.Time, srv Service, in ...PackFilter) (num int, err error)
-	DelFilter(ts time.Time, srv Name, in PackID) (num int)
-	AddPack(srv Service, in Pack) (err error)
+	RunAll(ts time.Time, srv Service, in ...Repack) (total int, err error)
+	RunPartial(ts time.Time, srv Service, in ...Repack) (total int, last int)
+	RunSimple(srv Service, in Pack) (err error)
+	Remove(ts time.Time, srv Name, in PackID) (removed int)
 	SizeFilter(ts time.Time) int
 	SizeQueue() int
 	Close()
@@ -69,7 +70,7 @@ func New(threads int, queue int, limit int, ttl time.Duration) (self *Runner_t) 
 	return
 }
 
-func (self *Runner_t) __filter(ts time.Time, srv Service, in PackFilter) (i int) {
+func (self *Runner_t) __filter(ts time.Time, srv Service, in Repack) (i int) {
 	var ok bool
 	last := in.Len() - 1
 	for i <= last {
@@ -85,11 +86,11 @@ func (self *Runner_t) __filter(ts time.Time, srv Service, in PackFilter) (i int)
 			last--
 		}
 	}
-	in.Repack(i)
+	in.Resize(i)
 	return
 }
 
-func (self *Runner_t) AddFilter(ts time.Time, srv Service, in ...PackFilter) (total int, err error) {
+func (self *Runner_t) RunAll(ts time.Time, srv Service, in ...Repack) (total int, err error) {
 	self.mx.Lock()
 	if len(in) > cap(self.in)-len(self.in) {
 		self.mx.Unlock()
@@ -109,24 +110,44 @@ func (self *Runner_t) AddFilter(ts time.Time, srv Service, in ...PackFilter) (to
 	return
 }
 
-func (self *Runner_t) DelFilter(ts time.Time, srv Name, in PackID) (res int) {
+func (self *Runner_t) RunPartial(ts time.Time, srv Service, in ...Repack) (total int, last int) {
 	self.mx.Lock()
-	var ok bool
-	for i := 0; i < in.Len(); i++ {
-		if _, ok = self.cx.Remove(ts, srv.ServiceName()+in.IDString(i)); ok {
-			res++
+	part := cap(self.in) - len(self.in)
+	// repack all before processing
+	for i := 0; i < len(in) && last < part; i++ {
+		if added := self.__filter(ts, srv, in[i]); added > 0 {
+			total += added
+			last++
+		}
+	}
+	for i := 0; i < last; {
+		if in[i].Len() > 0 {
+			self.in <- msg_t{srv: srv, pack: in[i]}
+			i++
 		}
 	}
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) AddPack(srv Service, in Pack) (err error) {
+func (self *Runner_t) RunSimple(srv Service, in Pack) (err error) {
 	self.mx.Lock()
 	select {
 	case self.in <- msg_t{srv: srv, pack: in}:
 	default:
 		err = fmt.Errorf("OVERFLOW")
+	}
+	self.mx.Unlock()
+	return
+}
+
+func (self *Runner_t) Remove(ts time.Time, srv Name, in PackID) (res int) {
+	self.mx.Lock()
+	var ok bool
+	for i := 0; i < in.Len(); i++ {
+		if _, ok = self.cx.Remove(ts, srv.ServiceName()+in.IDString(i)); ok {
+			res++
+		}
 	}
 	self.mx.Unlock()
 	return
