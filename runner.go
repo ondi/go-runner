@@ -36,11 +36,17 @@ type Service interface {
 	ServiceDo(msg Pack)
 }
 
+type Running interface {
+	Name() string
+	Count() int
+}
+
 type Runner interface {
 	RunAll(ts time.Time, srv Service, in ...Repack) (total int, err error)
 	RunPartial(ts time.Time, srv Service, in ...Repack) (total int, last int)
 	RunSimple(srv Service, in Pack) (err error)
 	Remove(ts time.Time, srv Name, in PackID) (removed int)
+	Running() []Running
 	SizeFilter(ts time.Time) int
 	SizeQueue() int
 	Close()
@@ -55,7 +61,21 @@ type Runner_t struct {
 	mx sync.Mutex
 	cx *cache.Cache_t
 	in chan msg_t
+	do map[string]int
 	wg sync.WaitGroup
+}
+
+type Running_t struct {
+	name  string
+	count int
+}
+
+func (self Running_t) Name() string {
+	return self.name
+}
+
+func (self Running_t) Count() int {
+	return self.count
 }
 
 func New(threads int, queue int, limit int, ttl time.Duration) (self *Runner_t) {
@@ -153,11 +173,38 @@ func (self *Runner_t) Remove(ts time.Time, srv Name, in PackID) (res int) {
 	return
 }
 
+func (self *Runner_t) add_do(name string) {
+	self.mx.Lock()
+	self.do[name]++
+	self.mx.Unlock()
+}
+
+func (self *Runner_t) del_do(name string) {
+	self.mx.Lock()
+	if temp := self.do[name]; temp == 1 {
+		delete(self.do, name)
+	} else {
+		self.do[name] = temp - 1
+	}
+	self.mx.Unlock()
+}
+
 func (self *Runner_t) run() {
 	defer self.wg.Done()
 	for v := range self.in {
+		self.add_do(v.srv.ServiceName())
 		v.srv.ServiceDo(v.pack)
+		self.del_do(v.srv.ServiceName())
 	}
+}
+
+func (self *Runner_t) Running() (res []Running) {
+	self.mx.Lock()
+	for k, v := range self.do {
+		res = append(res, Running_t{name: k, count: v})
+	}
+	self.mx.Unlock()
+	return
 }
 
 func (self *Runner_t) SizeFilter(ts time.Time) (res int) {
