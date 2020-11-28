@@ -82,6 +82,7 @@ func New(threads int, queue int, limit int, ttl time.Duration) (self *Runner_t) 
 	self = &Runner_t{
 		cx: cache.New(limit, ttl, cache.Drop),
 		in: make(chan msg_t, queue),
+		do: map[string]int{},
 	}
 	for i := 0; i < threads; i++ {
 		self.wg.Add(1)
