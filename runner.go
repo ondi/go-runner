@@ -38,10 +38,10 @@ type Service interface {
 }
 
 type Runner interface {
-	RunAll(ts time.Time, srv Service, in ...Repack) (total int, err error)
-	RunPartial(ts time.Time, srv Service, in ...Repack) (total int, last int)
-	RunSimple(srv Service, in Pack) (err error)
-	Remove(ts time.Time, srv Name, in PackID) (removed int)
+	RunAll(ts time.Time, service Service, packs ...Repack) (total int, err error)
+	RunPartial(ts time.Time, service Service, packs ...Repack) (total int, last int)
+	RunSimple(service Service, pack Pack) (err error)
+	Remove(ts time.Time, name Name, pack PackID) (removed int)
 	Running() int64
 	SizeFilter(ts time.Time) int
 	SizeQueue() int
@@ -133,10 +133,10 @@ func (self *Runner_t) RunPartial(ts time.Time, service Service, packs ...Repack)
 	return
 }
 
-func (self *Runner_t) RunSimple(srv Service, pack Pack) (err error) {
+func (self *Runner_t) RunSimple(service Service, pack Pack) (err error) {
 	self.mx.Lock()
 	select {
-	case self.queue <- msg_t{service: srv, pack: pack}:
+	case self.queue <- msg_t{service: service, pack: pack}:
 	default:
 		err = fmt.Errorf("OVERFLOW")
 	}
