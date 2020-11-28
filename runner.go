@@ -7,6 +7,7 @@ package runner
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	cache "github.com/ondi/go-ttl-cache"
@@ -36,53 +37,34 @@ type Service interface {
 	ServiceDo(msg Pack)
 }
 
-type Running interface {
-	Name() string
-	Count() int
-}
-
 type Runner interface {
 	RunAll(ts time.Time, srv Service, in ...Repack) (total int, err error)
 	RunPartial(ts time.Time, srv Service, in ...Repack) (total int, last int)
 	RunSimple(srv Service, in Pack) (err error)
 	Remove(ts time.Time, srv Name, in PackID) (removed int)
-	Running() []Running
+	Running() int64
 	SizeFilter(ts time.Time) int
 	SizeQueue() int
 	Close()
 }
 
 type msg_t struct {
-	srv  Service
-	pack Pack
+	service Service
+	pack    Pack
 }
 
 type Runner_t struct {
-	mx sync.Mutex
-	cx *cache.Cache_t
-	in chan msg_t
-	do map[string]int
-	wg sync.WaitGroup
-}
-
-type Running_t struct {
-	name  string
-	count int
-}
-
-func (self Running_t) Name() string {
-	return self.name
-}
-
-func (self Running_t) Count() int {
-	return self.count
+	mx      sync.Mutex
+	cx      *cache.Cache_t
+	queue   chan msg_t
+	running int64
+	wg      sync.WaitGroup
 }
 
 func New(threads int, queue int, limit int, ttl time.Duration) (self *Runner_t) {
 	self = &Runner_t{
-		cx: cache.New(limit, ttl, cache.Drop),
-		in: make(chan msg_t, queue),
-		do: map[string]int{},
+		cx:    cache.New(limit, ttl, cache.Drop),
+		queue: make(chan msg_t, queue),
 	}
 	for i := 0; i < threads; i++ {
 		self.wg.Add(1)
@@ -91,59 +73,59 @@ func New(threads int, queue int, limit int, ttl time.Duration) (self *Runner_t) 
 	return
 }
 
-func (self *Runner_t) __filter(ts time.Time, srv Service, in Repack) (i int) {
+func (self *Runner_t) __filter(ts time.Time, service Service, pack Repack) (i int) {
 	var ok bool
-	last := in.Len() - 1
+	last := pack.Len() - 1
 	for i <= last {
 		if _, ok = self.cx.Push(
 			ts,
-			srv.ServiceName()+in.IDString(i),
+			service.ServiceName()+pack.IDString(i),
 			func() interface{} { return nil },
 			func(interface{}) interface{} { return nil },
 		); ok {
 			i++
 		} else {
-			in.Swap(i, last)
+			pack.Swap(i, last)
 			last--
 		}
 	}
-	in.Resize(i)
+	pack.Resize(i)
 	return
 }
 
-func (self *Runner_t) RunAll(ts time.Time, srv Service, in ...Repack) (total int, err error) {
+func (self *Runner_t) RunAll(ts time.Time, service Service, packs ...Repack) (total int, err error) {
 	self.mx.Lock()
-	if len(in) > cap(self.in)-len(self.in) {
+	if len(packs) > cap(self.queue)-len(self.queue) {
 		self.mx.Unlock()
 		err = fmt.Errorf("OVERFLOW")
 		return
 	}
 	// repack all before processing
-	for _, pack := range in {
-		total += self.__filter(ts, srv, pack)
+	for _, pack := range packs {
+		total += self.__filter(ts, service, pack)
 	}
-	for _, pack := range in {
+	for _, pack := range packs {
 		if pack.Len() > 0 {
-			self.in <- msg_t{srv: srv, pack: pack}
+			self.queue <- msg_t{service: service, pack: pack}
 		}
 	}
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunPartial(ts time.Time, srv Service, in ...Repack) (total int, last int) {
+func (self *Runner_t) RunPartial(ts time.Time, service Service, packs ...Repack) (total int, last int) {
 	self.mx.Lock()
-	part := cap(self.in) - len(self.in)
+	part := cap(self.queue) - len(self.queue)
 	// repack all before processing
-	for i := 0; i < len(in) && last < part; i++ {
-		if added := self.__filter(ts, srv, in[i]); added > 0 {
+	for i := 0; i < len(packs) && last < part; i++ {
+		if added := self.__filter(ts, service, packs[i]); added > 0 {
 			total += added
 			last++
 		}
 	}
 	for i := 0; i < last; {
-		if in[i].Len() > 0 {
-			self.in <- msg_t{srv: srv, pack: in[i]}
+		if packs[i].Len() > 0 {
+			self.queue <- msg_t{service: service, pack: packs[i]}
 			i++
 		}
 	}
@@ -151,10 +133,10 @@ func (self *Runner_t) RunPartial(ts time.Time, srv Service, in ...Repack) (total
 	return
 }
 
-func (self *Runner_t) RunSimple(srv Service, in Pack) (err error) {
+func (self *Runner_t) RunSimple(srv Service, pack Pack) (err error) {
 	self.mx.Lock()
 	select {
-	case self.in <- msg_t{srv: srv, pack: in}:
+	case self.queue <- msg_t{service: srv, pack: pack}:
 	default:
 		err = fmt.Errorf("OVERFLOW")
 	}
@@ -162,11 +144,11 @@ func (self *Runner_t) RunSimple(srv Service, in Pack) (err error) {
 	return
 }
 
-func (self *Runner_t) Remove(ts time.Time, srv Name, in PackID) (res int) {
+func (self *Runner_t) Remove(ts time.Time, name Name, pack PackID) (res int) {
 	self.mx.Lock()
 	var ok bool
-	for i := 0; i < in.Len(); i++ {
-		if _, ok = self.cx.Remove(ts, srv.ServiceName()+in.IDString(i)); ok {
+	for i := 0; i < pack.Len(); i++ {
+		if _, ok = self.cx.Remove(ts, name.ServiceName()+pack.IDString(i)); ok {
 			res++
 		}
 	}
@@ -174,38 +156,17 @@ func (self *Runner_t) Remove(ts time.Time, srv Name, in PackID) (res int) {
 	return
 }
 
-func (self *Runner_t) add_do(name string) {
-	self.mx.Lock()
-	self.do[name]++
-	self.mx.Unlock()
-}
-
-func (self *Runner_t) del_do(name string) {
-	self.mx.Lock()
-	if temp := self.do[name]; temp == 1 {
-		delete(self.do, name)
-	} else {
-		self.do[name] = temp - 1
-	}
-	self.mx.Unlock()
-}
-
 func (self *Runner_t) run() {
 	defer self.wg.Done()
-	for v := range self.in {
-		self.add_do(v.srv.ServiceName())
-		v.srv.ServiceDo(v.pack)
-		self.del_do(v.srv.ServiceName())
+	for v := range self.queue {
+		atomic.AddInt64(&self.running, 1)
+		v.service.ServiceDo(v.pack)
+		atomic.AddInt64(&self.running, -1)
 	}
 }
 
-func (self *Runner_t) Running() (res []Running) {
-	self.mx.Lock()
-	for k, v := range self.do {
-		res = append(res, Running_t{name: k, count: v})
-	}
-	self.mx.Unlock()
-	return
+func (self *Runner_t) Running() int64 {
+	return atomic.LoadInt64(&self.running)
 }
 
 func (self *Runner_t) SizeFilter(ts time.Time) (res int) {
@@ -216,10 +177,10 @@ func (self *Runner_t) SizeFilter(ts time.Time) (res int) {
 }
 
 func (self *Runner_t) SizeQueue() int {
-	return len(self.in)
+	return len(self.queue)
 }
 
 func (self *Runner_t) Close() {
-	close(self.in)
+	close(self.queue)
 	self.wg.Wait()
 }
