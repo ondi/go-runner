@@ -150,3 +150,51 @@ func Test_add07(t *testing.T) {
 	assert.Equal(t, r.SizeFilter(ts), 0)
 	assert.Equal(t, r.SizeQueue(), 2)
 }
+
+func Test_add08(t *testing.T) {
+	s := &MyService_t{}
+	r := New(0, 2, 100, 5*time.Second)
+	ts := time.Now()
+
+	total, last := r.RunPartial(ts, s, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
+	assert.Equal(t, total, 2)
+	assert.Equal(t, last, 2)
+	assert.Equal(t, r.SizeFilter(ts), 2)
+	assert.Equal(t, r.SizeQueue(), 2)
+
+	ts = ts.Add(-10 * time.Second)
+
+	removed := r.Remove(ts, s, &MyPack_t{id: "1"})
+	assert.Equal(t, removed, 1)
+	assert.Equal(t, r.SizeFilter(ts), 1)
+	assert.Equal(t, r.SizeQueue(), 2)
+
+	removed = r.Remove(ts, s, &MyPack_t{id: "2"})
+	assert.Equal(t, removed, 1)
+	assert.Equal(t, r.SizeFilter(ts), 0)
+	assert.Equal(t, r.SizeQueue(), 2)
+}
+
+func Test_add09(t *testing.T) {
+	s := &MyService_t{}
+	r := New(0, 2, 100, 5*time.Second)
+	ts := time.Now()
+
+	total, last := r.RunPartial(ts, s, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
+	assert.Equal(t, total, 2)
+	assert.Equal(t, last, 2)
+	assert.Equal(t, r.SizeFilter(ts), 2)
+	assert.Equal(t, r.SizeQueue(), 2)
+
+	ts = ts.Add(10 * time.Second)
+
+	removed := r.Remove(ts, s, &MyPack_t{id: "1"})
+	assert.Equal(t, removed, 0)
+	assert.Equal(t, r.SizeFilter(ts), 0)
+	assert.Equal(t, r.SizeQueue(), 2)
+
+	removed = r.Remove(ts, s, &MyPack_t{id: "2"})
+	assert.Equal(t, removed, 0)
+	assert.Equal(t, r.SizeFilter(ts), 0)
+	assert.Equal(t, r.SizeQueue(), 2)
+}

@@ -144,12 +144,12 @@ func (self *Runner_t) RunSimple(service Service, pack Pack) (err error) {
 	return
 }
 
-func (self *Runner_t) Remove(ts time.Time, name Name, pack PackID) (res int) {
+func (self *Runner_t) Remove(ts time.Time, name Name, pack PackID) (removed int) {
 	self.mx.Lock()
 	var ok bool
 	for i := 0; i < pack.Len(); i++ {
 		if _, ok = self.cx.Remove(ts, name.ServiceName()+pack.IDString(i)); ok {
-			res++
+			removed++
 		}
 	}
 	self.mx.Unlock()
