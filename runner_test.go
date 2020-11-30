@@ -20,10 +20,14 @@ func (*MyService_t) ServiceName() string {
 func (*MyService_t) ServiceDo(in Pack) {}
 
 type MyPack_t struct {
-	id string
+	id     string
+	resize bool
 }
 
-func (*MyPack_t) Len() int {
+func (self *MyPack_t) Len() int {
+	if self.resize {
+		return 0
+	}
 	return 1
 }
 
@@ -33,7 +37,11 @@ func (self *MyPack_t) IDString(i int) string {
 
 func (*MyPack_t) Swap(int, int) {}
 
-func (*MyPack_t) Resize(int) {}
+func (self *MyPack_t) Resize(i int) {
+	if i == 0 {
+		self.resize = true
+	}
+}
 
 func Test_add01(t *testing.T) {
 	s := &MyService_t{}
@@ -197,4 +205,14 @@ func Test_add09(t *testing.T) {
 	assert.Equal(t, removed, 0)
 	assert.Equal(t, r.SizeFilter(ts), 0)
 	assert.Equal(t, r.SizeQueue(), 2)
+}
+
+func Test_add10(t *testing.T) {
+	s := &MyService_t{}
+	r := New(0, 2, 100, 5*time.Second)
+	ts := time.Now()
+
+	total, last := r.RunPartial(ts, s, &MyPack_t{id: "1"}, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
+	assert.Equal(t, total, 2)
+	assert.Equal(t, last, 2)
 }

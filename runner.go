@@ -123,10 +123,11 @@ func (self *Runner_t) RunPartial(ts time.Time, service Service, packs ...Repack)
 			last++
 		}
 	}
-	for i := 0; i < last; {
+	part = 0
+	for i := 0; part < last; i++ {
 		if packs[i].Len() > 0 {
 			self.queue <- msg_t{service: service, pack: packs[i]}
-			i++
+			part++
 		}
 	}
 	self.mx.Unlock()
