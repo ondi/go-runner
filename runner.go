@@ -45,6 +45,7 @@ type Runner interface {
 	Running() int64
 	SizeFilter(ts time.Time) int
 	SizeQueue() int
+	FlushFilter(ts time.Time)
 	Close()
 }
 
@@ -179,6 +180,12 @@ func (self *Runner_t) SizeFilter(ts time.Time) (res int) {
 
 func (self *Runner_t) SizeQueue() int {
 	return len(self.queue)
+}
+
+func (self *Runner_t) FlushFilter(ts time.Time) {
+	self.mx.Lock()
+	self.cx.FlushLimit(ts, 0)
+	self.mx.Unlock()
 }
 
 func (self *Runner_t) Close() {
