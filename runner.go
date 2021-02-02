@@ -114,7 +114,9 @@ func (self *Runner_t) RunRepack(ts time.Time, service Service, packs ...Repack) 
 
 func (self *Runner_t) RunPack(service Service, packs ...Pack) (last int) {
 	self.mx.Lock()
-	last = cap(self.queue) - len(self.queue)
+	if last = cap(self.queue) - len(self.queue); last > len(packs) {
+		last = len(packs)
+	}
 	for i := 0; i < last; i++ {
 		self.queue <- msg_t{service: service, pack: packs[i]}
 	}
