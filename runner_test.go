@@ -48,9 +48,9 @@ func Test_add01(t *testing.T) {
 	r := New(0, 1, 100, 15*time.Second)
 	ts := time.Now()
 
-	total, err := r.RunAllRepack(ts, s, &MyPack_t{id: "1"})
-	assert.NilError(t, err)
+	total, last := r.RunRepack(ts, s, &MyPack_t{id: "1"})
 	assert.Equal(t, total, 1)
+	assert.Equal(t, last, 1)
 	assert.Equal(t, r.SizeFilter(ts), 1)
 	assert.Equal(t, r.SizeQueue(), 1)
 }
@@ -60,9 +60,9 @@ func Test_add02(t *testing.T) {
 	r := New(0, 2, 100, 15*time.Second)
 	ts := time.Now()
 
-	total, err := r.RunAllRepack(ts, s, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
-	assert.NilError(t, err)
+	total, last := r.RunRepack(ts, s, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
 	assert.Equal(t, total, 2)
+	assert.Equal(t, last, 2)
 	assert.Equal(t, r.SizeFilter(ts), 2)
 	assert.Equal(t, r.SizeQueue(), 2)
 }
@@ -72,11 +72,11 @@ func Test_add03(t *testing.T) {
 	r := New(0, 2, 100, 15*time.Second)
 	ts := time.Now()
 
-	total, err := r.RunAllRepack(ts, s, &MyPack_t{id: "1"}, &MyPack_t{id: "2"}, &MyPack_t{id: "3"})
-	assert.Equal(t, err.Error(), "OVERFLOW")
-	assert.Equal(t, total, 0)
-	assert.Equal(t, r.SizeFilter(ts), 0)
-	assert.Equal(t, r.SizeQueue(), 0)
+	total, last := r.RunRepack(ts, s, &MyPack_t{id: "1"}, &MyPack_t{id: "2"}, &MyPack_t{id: "3"})
+	assert.Equal(t, total, 2)
+	assert.Equal(t, last, 2)
+	assert.Equal(t, r.SizeFilter(ts), 2)
+	assert.Equal(t, r.SizeQueue(), 2)
 }
 
 func Test_add04(t *testing.T) {
@@ -84,21 +84,21 @@ func Test_add04(t *testing.T) {
 	r := New(0, 2, 100, 15*time.Second)
 	ts := time.Now()
 
-	total, err := r.RunAllRepack(ts, s, &MyPack_t{id: "1"})
-	assert.NilError(t, err)
-	assert.Equal(t, total, 1)
-	assert.Equal(t, r.SizeFilter(ts), 1)
-	assert.Equal(t, r.SizeQueue(), 1)
-
-	total, err = r.RunAllRepack(ts, s, &MyPack_t{id: "2"}, &MyPack_t{id: "3"})
-	assert.Equal(t, err.Error(), "OVERFLOW")
-	assert.Equal(t, total, 0)
-	assert.Equal(t, r.SizeFilter(ts), 1)
-	assert.Equal(t, r.SizeQueue(), 1)
-
-	total, last := r.RunAnyRepack(ts, s, &MyPack_t{id: "2"}, &MyPack_t{id: "3"})
+	total, last := r.RunRepack(ts, s, &MyPack_t{id: "1"})
 	assert.Equal(t, total, 1)
 	assert.Equal(t, last, 1)
+	assert.Equal(t, r.SizeFilter(ts), 1)
+	assert.Equal(t, r.SizeQueue(), 1)
+
+	total, last = r.RunRepack(ts, s, &MyPack_t{id: "2"}, &MyPack_t{id: "3"})
+	assert.Equal(t, total, 1)
+	assert.Equal(t, last, 1)
+	assert.Equal(t, r.SizeFilter(ts), 2)
+	assert.Equal(t, r.SizeQueue(), 2)
+
+	total, last = r.RunRepack(ts, s, &MyPack_t{id: "2"}, &MyPack_t{id: "3"})
+	assert.Equal(t, total, 0)
+	assert.Equal(t, last, 0)
 	assert.Equal(t, r.SizeFilter(ts), 2)
 	assert.Equal(t, r.SizeQueue(), 2)
 }
@@ -108,13 +108,13 @@ func Test_add05(t *testing.T) {
 	r := New(0, 2, 100, 15*time.Second)
 	ts := time.Now()
 
-	total, err := r.RunAllRepack(ts, s, &MyPack_t{id: "1"})
-	assert.NilError(t, err)
+	total, last := r.RunRepack(ts, s, &MyPack_t{id: "1"})
 	assert.Equal(t, total, 1)
+	assert.Equal(t, last, 1)
 	assert.Equal(t, r.SizeFilter(ts), 1)
 	assert.Equal(t, r.SizeQueue(), 1)
 
-	total, last := r.RunAnyRepack(ts, s, &MyPack_t{id: "2"}, &MyPack_t{id: "3"})
+	total, last = r.RunRepack(ts, s, &MyPack_t{id: "2"}, &MyPack_t{id: "3"})
 	assert.Equal(t, total, 1)
 	assert.Equal(t, last, 1)
 	assert.Equal(t, r.SizeFilter(ts), 2)
@@ -138,7 +138,7 @@ func Test_add06(t *testing.T) {
 	r := New(0, 2, 100, 5*time.Second)
 	ts := time.Now()
 
-	total, last := r.RunAnyRepack(ts, s, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
+	total, last := r.RunRepack(ts, s, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
 	assert.Equal(t, total, 2)
 	assert.Equal(t, last, 2)
 	ts = ts.Add(-10 * time.Second)
@@ -151,7 +151,7 @@ func Test_add07(t *testing.T) {
 	r := New(0, 2, 100, 5*time.Second)
 	ts := time.Now()
 
-	total, last := r.RunAnyRepack(ts, s, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
+	total, last := r.RunRepack(ts, s, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
 	assert.Equal(t, total, 2)
 	assert.Equal(t, last, 2)
 	ts = ts.Add(10 * time.Second)
@@ -164,7 +164,7 @@ func Test_add08(t *testing.T) {
 	r := New(0, 2, 100, 5*time.Second)
 	ts := time.Now()
 
-	total, last := r.RunAnyRepack(ts, s, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
+	total, last := r.RunRepack(ts, s, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
 	assert.Equal(t, total, 2)
 	assert.Equal(t, last, 2)
 	assert.Equal(t, r.SizeFilter(ts), 2)
@@ -188,7 +188,7 @@ func Test_add09(t *testing.T) {
 	r := New(0, 2, 100, 5*time.Second)
 	ts := time.Now()
 
-	total, last := r.RunAnyRepack(ts, s, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
+	total, last := r.RunRepack(ts, s, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
 	assert.Equal(t, total, 2)
 	assert.Equal(t, last, 2)
 	assert.Equal(t, r.SizeFilter(ts), 2)
@@ -212,7 +212,7 @@ func Test_add10(t *testing.T) {
 	r := New(0, 2, 100, 5*time.Second)
 	ts := time.Now()
 
-	total, last := r.RunAnyRepack(ts, s, &MyPack_t{id: "1"}, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
+	total, last := r.RunRepack(ts, s, &MyPack_t{id: "1"}, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
 	assert.Equal(t, total, 2)
-	assert.Equal(t, last, 2)
+	assert.Equal(t, last, 3)
 }

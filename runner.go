@@ -5,7 +5,6 @@
 package runner
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -38,10 +37,8 @@ type Service interface {
 }
 
 type Runner interface {
-	RunAllRepack(ts time.Time, service Service, packs ...Repack) (total int, err error)
-	RunAnyRepack(ts time.Time, service Service, packs ...Repack) (total int, last int)
-	RunAllPack(service Service, packs ...Pack) (err error)
-	RunAnyPack(service Service, packs ...Pack) (err error)
+	RunRepack(ts time.Time, service Service, packs ...Repack) (total int, last int)
+	RunPack(service Service, packs ...Pack) (last int)
 	Remove(ts time.Time, name Name, pack PackID) (removed int)
 	Running() int64
 	SizeFilter(ts time.Time) int
@@ -63,19 +60,19 @@ type Runner_t struct {
 	wg      sync.WaitGroup
 }
 
-func New(threads int, queue int, limit int, ttl time.Duration) (self *Runner_t) {
-	self = &Runner_t{
-		cx:    cache.New(limit, ttl, cache.Drop),
+func New(threads int, queue int, filter_limit int, filter_ttl time.Duration) Runner {
+	self := &Runner_t{
+		cx:    cache.New(filter_limit, filter_ttl, cache.Drop),
 		queue: make(chan msg_t, queue),
 	}
 	for i := 0; i < threads; i++ {
 		self.wg.Add(1)
 		go self.run()
 	}
-	return
+	return self
 }
 
-func (self *Runner_t) __filter(ts time.Time, service Service, pack Repack) (i int) {
+func (self *Runner_t) __repack(ts time.Time, service Service, pack Repack) (i int) {
 	var ok bool
 	last := pack.Len() - 1
 	for i <= last {
@@ -95,64 +92,31 @@ func (self *Runner_t) __filter(ts time.Time, service Service, pack Repack) (i in
 	return
 }
 
-func (self *Runner_t) RunAllRepack(ts time.Time, service Service, packs ...Repack) (total int, err error) {
+func (self *Runner_t) RunRepack(ts time.Time, service Service, packs ...Repack) (total int, last int) {
 	self.mx.Lock()
-	if len(packs) > cap(self.queue)-len(self.queue) {
-		self.mx.Unlock()
-		err = fmt.Errorf("OVERFLOW")
-		return
-	}
+	any := cap(self.queue) - len(self.queue)
 	// repack all before processing
-	for _, pack := range packs {
-		total += self.__filter(ts, service, pack)
-	}
-	for _, pack := range packs {
-		if pack.Len() > 0 {
-			self.queue <- msg_t{service: service, pack: pack}
-		}
-	}
-	self.mx.Unlock()
-	return
-}
-
-func (self *Runner_t) RunAnyRepack(ts time.Time, service Service, packs ...Repack) (total int, last int) {
-	self.mx.Lock()
-	part := cap(self.queue) - len(self.queue)
-	// repack all before processing
-	for i := 0; i < len(packs) && last < part; i++ {
-		if added := self.__filter(ts, service, packs[i]); added > 0 {
+	for any > 0 && last < len(packs) {
+		if added := self.__repack(ts, service, packs[last]); added > 0 {
 			total += added
-			last++
+			any--
 		}
+		last++
 	}
-	part = 0
-	for i := 0; part < last; i++ {
-		if packs[i].Len() > 0 {
-			self.queue <- msg_t{service: service, pack: packs[i]}
-			part++
+	for any = 0; any < last; any++ {
+		if packs[any].Len() > 0 {
+			self.queue <- msg_t{service: service, pack: packs[any]}
 		}
 	}
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunAllPack(service Service, pack Pack) (err error) {
+func (self *Runner_t) RunPack(service Service, packs ...Pack) (last int) {
 	self.mx.Lock()
-	select {
-	case self.queue <- msg_t{service: service, pack: pack}:
-	default:
-		err = fmt.Errorf("OVERFLOW")
-	}
-	self.mx.Unlock()
-	return
-}
-
-func (self *Runner_t) RunAnyPack(service Service, pack Pack) (err error) {
-	self.mx.Lock()
-	select {
-	case self.queue <- msg_t{service: service, pack: pack}:
-	default:
-		err = fmt.Errorf("OVERFLOW")
+	last = cap(self.queue) - len(self.queue)
+	for i := 0; i < last; i++ {
+		self.queue <- msg_t{service: service, pack: packs[i]}
 	}
 	self.mx.Unlock()
 	return
