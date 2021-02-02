@@ -38,9 +38,10 @@ type Service interface {
 }
 
 type Runner interface {
-	RunAll(ts time.Time, service Service, packs ...Repack) (total int, err error)
-	RunPartial(ts time.Time, service Service, packs ...Repack) (total int, last int)
-	RunSimple(service Service, pack Pack) (err error)
+	RunAllRepack(ts time.Time, service Service, packs ...Repack) (total int, err error)
+	RunAnyRepack(ts time.Time, service Service, packs ...Repack) (total int, last int)
+	RunAllPack(service Service, packs ...Pack) (err error)
+	RunAnyPack(service Service, packs ...Pack) (err error)
 	Remove(ts time.Time, name Name, pack PackID) (removed int)
 	Running() int64
 	SizeFilter(ts time.Time) int
@@ -94,7 +95,7 @@ func (self *Runner_t) __filter(ts time.Time, service Service, pack Repack) (i in
 	return
 }
 
-func (self *Runner_t) RunAll(ts time.Time, service Service, packs ...Repack) (total int, err error) {
+func (self *Runner_t) RunAllRepack(ts time.Time, service Service, packs ...Repack) (total int, err error) {
 	self.mx.Lock()
 	if len(packs) > cap(self.queue)-len(self.queue) {
 		self.mx.Unlock()
@@ -114,7 +115,7 @@ func (self *Runner_t) RunAll(ts time.Time, service Service, packs ...Repack) (to
 	return
 }
 
-func (self *Runner_t) RunPartial(ts time.Time, service Service, packs ...Repack) (total int, last int) {
+func (self *Runner_t) RunAnyRepack(ts time.Time, service Service, packs ...Repack) (total int, last int) {
 	self.mx.Lock()
 	part := cap(self.queue) - len(self.queue)
 	// repack all before processing
@@ -135,7 +136,18 @@ func (self *Runner_t) RunPartial(ts time.Time, service Service, packs ...Repack)
 	return
 }
 
-func (self *Runner_t) RunSimple(service Service, pack Pack) (err error) {
+func (self *Runner_t) RunAllPack(service Service, pack Pack) (err error) {
+	self.mx.Lock()
+	select {
+	case self.queue <- msg_t{service: service, pack: pack}:
+	default:
+		err = fmt.Errorf("OVERFLOW")
+	}
+	self.mx.Unlock()
+	return
+}
+
+func (self *Runner_t) RunAnyPack(service Service, pack Pack) (err error) {
 	self.mx.Lock()
 	select {
 	case self.queue <- msg_t{service: service, pack: pack}:
