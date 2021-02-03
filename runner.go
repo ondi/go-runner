@@ -12,12 +12,8 @@ import (
 	cache "github.com/ondi/go-ttl-cache"
 )
 
-type Pack interface {
-	Len() int
-}
-
 type PackID interface {
-	Pack
+	Len() int
 	IDString(i int) string
 }
 
@@ -33,12 +29,12 @@ type Name interface {
 
 type Service interface {
 	Name
-	ServiceDo(msg Pack)
+	ServiceDo(msg interface{})
 }
 
 type Runner interface {
 	RunRepack(ts time.Time, service Service, packs ...Repack) (total int, last int)
-	RunPack(service Service, packs ...Pack) (last int)
+	RunPack(service Service, packs ...interface{}) (last int)
 	Remove(ts time.Time, name Name, pack PackID) (removed int)
 	Running() int64
 	SizeFilter(ts time.Time) int
@@ -49,7 +45,7 @@ type Runner interface {
 
 type msg_t struct {
 	service Service
-	pack    Pack
+	pack    interface{}
 }
 
 type Runner_t struct {
@@ -112,7 +108,7 @@ func (self *Runner_t) RunRepack(ts time.Time, service Service, packs ...Repack) 
 	return
 }
 
-func (self *Runner_t) RunPack(service Service, packs ...Pack) (last int) {
+func (self *Runner_t) RunPack(service Service, packs ...interface{}) (last int) {
 	self.mx.Lock()
 	if last = cap(self.queue) - len(self.queue); last > len(packs) {
 		last = len(packs)

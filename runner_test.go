@@ -17,7 +17,7 @@ func (*MyService_t) ServiceName() string {
 	return "default"
 }
 
-func (*MyService_t) ServiceDo(in Pack) {}
+func (*MyService_t) ServiceDo(in interface{}) {}
 
 type MyPack_t struct {
 	id     string
