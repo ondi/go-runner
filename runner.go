@@ -72,7 +72,7 @@ func (self *Runner_t) __repack(ts time.Time, service Service, pack Repack) (i in
 	var ok bool
 	last := pack.Len() - 1
 	for i <= last {
-		if _, ok = self.cx.Push(
+		if _, ok = self.cx.Create(
 			ts,
 			service.ServiceName()+pack.IDString(i),
 			func() interface{} { return nil },
