@@ -3,7 +3,7 @@ module github.com/ondi/go-runner
 go 1.17
 
 require (
-	github.com/ondi/go-ttl-cache v0.0.0-20210617133705-68a4afc54960
+	github.com/ondi/go-ttl-cache v0.0.0-20210726160039-e1687346aff5
 	gotest.tools v2.2.0+incompatible
 )
 
