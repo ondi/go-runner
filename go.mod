@@ -9,6 +9,6 @@ require (
 
 require (
 	github.com/google/go-cmp v0.5.6 // indirect
-	github.com/ondi/go-cache v0.0.0-20200928054320-88033629b2fc // indirect
+	github.com/ondi/go-cache v0.0.0-20210726155604-9f65175da6da // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 )
