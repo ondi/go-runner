@@ -33,7 +33,7 @@ type Service interface {
 }
 
 type Runner interface {
-	RunRepack(ts time.Time, service Service, packs ...Repack) (total int, last int)
+	RunRepack(ts time.Time, service Service, packs ...Repack) (added int, processed int, last int)
 	RunPack(service Service, packs ...interface{}) (last int)
 	Remove(ts time.Time, name Name, pack PackID) (removed int)
 	Running() int64
@@ -88,13 +88,14 @@ func (self *Runner_t) __repack(ts time.Time, service Service, pack Repack) (i in
 	return
 }
 
-func (self *Runner_t) RunRepack(ts time.Time, service Service, packs ...Repack) (total int, last int) {
+func (self *Runner_t) RunRepack(ts time.Time, service Service, packs ...Repack) (added int, processed int, last int) {
 	self.mx.Lock()
 	any := cap(self.queue) - len(self.queue)
 	// repack all before processing
 	for any > 0 && last < len(packs) {
-		if added := self.__repack(ts, service, packs[last]); added > 0 {
-			total += added
+		processed += packs[last].Len()
+		if add := self.__repack(ts, service, packs[last]); add > 0 {
+			added += add
 			any--
 		}
 		last++
