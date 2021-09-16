@@ -23,19 +23,10 @@ type Repack interface {
 	Resize(i int)
 }
 
-type Name interface {
-	ServiceName() string
-}
-
-type Service interface {
-	Name
-	ServiceDo(msg interface{})
-}
-
 type Runner interface {
-	RunRepack(ts time.Time, service Service, packs ...Repack) (added int, processed int, last int)
-	RunPack(service Service, packs ...interface{}) (last int)
-	Remove(ts time.Time, name Name, pack PackID) (removed int)
+	RunRepack(ts time.Time, name string, fn func(in interface{}), packs ...Repack) (added int, passed int, last int)
+	RunPack(name string, fn func(in interface{}), packs ...interface{}) (last int)
+	Remove(ts time.Time, name string, pack PackID) (removed int)
 	Running() int64
 	SizeFilter(ts time.Time) int
 	SizeQueue() int
@@ -44,8 +35,9 @@ type Runner interface {
 }
 
 type msg_t struct {
-	service Service
-	pack    interface{}
+	fn   func(in interface{})
+	pack interface{}
+	name string
 }
 
 type Runner_t struct {
@@ -68,13 +60,13 @@ func New(threads int, queue int, filter_limit int, filter_ttl time.Duration) Run
 	return self
 }
 
-func (self *Runner_t) __repack(ts time.Time, service Service, pack Repack) (i int) {
+func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (i int) {
 	var ok bool
 	last := pack.Len() - 1
 	for i <= last {
 		if _, ok = self.cx.Create(
 			ts,
-			service.ServiceName()+pack.IDString(i),
+			name+pack.IDString(i),
 			func() interface{} { return nil },
 			func(interface{}) interface{} { return nil },
 		); ok {
@@ -88,13 +80,13 @@ func (self *Runner_t) __repack(ts time.Time, service Service, pack Repack) (i in
 	return
 }
 
-func (self *Runner_t) RunRepack(ts time.Time, service Service, packs ...Repack) (added int, processed int, last int) {
+func (self *Runner_t) RunRepack(ts time.Time, name string, fn func(in interface{}), packs ...Repack) (added int, passed int, last int) {
 	self.mx.Lock()
 	any := cap(self.queue) - len(self.queue)
 	// repack all before processing
 	for any > 0 && last < len(packs) {
-		processed += packs[last].Len()
-		if add := self.__repack(ts, service, packs[last]); add > 0 {
+		passed += packs[last].Len()
+		if add := self.__repack(ts, name, packs[last]); add > 0 {
 			added += add
 			any--
 		}
@@ -102,30 +94,30 @@ func (self *Runner_t) RunRepack(ts time.Time, service Service, packs ...Repack) 
 	}
 	for any = 0; any < last; any++ {
 		if packs[any].Len() > 0 {
-			self.queue <- msg_t{service: service, pack: packs[any]}
+			self.queue <- msg_t{name: name, fn: fn, pack: packs[any]}
 		}
 	}
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunPack(service Service, packs ...interface{}) (last int) {
+func (self *Runner_t) RunPack(name string, fn func(in interface{}), packs ...interface{}) (last int) {
 	self.mx.Lock()
 	if last = cap(self.queue) - len(self.queue); last > len(packs) {
 		last = len(packs)
 	}
 	for i := 0; i < last; i++ {
-		self.queue <- msg_t{service: service, pack: packs[i]}
+		self.queue <- msg_t{name: name, fn: fn, pack: packs[i]}
 	}
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) Remove(ts time.Time, name Name, pack PackID) (removed int) {
+func (self *Runner_t) Remove(ts time.Time, name string, pack PackID) (removed int) {
 	self.mx.Lock()
 	var ok bool
 	for i := 0; i < pack.Len(); i++ {
-		if _, ok = self.cx.Remove(ts, name.ServiceName()+pack.IDString(i)); ok {
+		if _, ok = self.cx.Remove(ts, name+pack.IDString(i)); ok {
 			removed++
 		}
 	}
@@ -137,7 +129,7 @@ func (self *Runner_t) run() {
 	defer self.wg.Done()
 	for v := range self.queue {
 		atomic.AddInt64(&self.running, 1)
-		v.service.ServiceDo(v.pack)
+		v.fn(v.pack)
 		atomic.AddInt64(&self.running, -1)
 	}
 }
