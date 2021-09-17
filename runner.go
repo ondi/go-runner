@@ -28,8 +28,8 @@ type Aggregate interface {
 }
 
 type Runner interface {
-	RunRepack(ts time.Time, name string, fn func(agg Aggregate, in interface{}), agg Aggregate, packs ...Repack) (added int, passed int, last int)
-	RunPack(name string, fn func(agg Aggregate, in interface{}), agg Aggregate, packs ...interface{}) (last int)
+	RunRepack(ts time.Time, name string, fn func(agg Aggregate, in interface{}), agg Aggregate, packs []Repack) (added int, passed int, last int)
+	RunPack(name string, fn func(agg Aggregate, in interface{}), agg Aggregate, packs []interface{}) (last int)
 	Remove(ts time.Time, name string, pack PackID) (removed int)
 	Running() int64
 	SizeFilter(ts time.Time) int
@@ -85,7 +85,7 @@ func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (i int) {
 	return
 }
 
-func (self *Runner_t) RunRepack(ts time.Time, name string, fn func(agg Aggregate, in interface{}), agg Aggregate, packs ...Repack) (added int, passed int, last int) {
+func (self *Runner_t) RunRepack(ts time.Time, name string, fn func(agg Aggregate, in interface{}), agg Aggregate, packs []Repack) (added int, passed int, last int) {
 	self.mx.Lock()
 	any := cap(self.queue) - len(self.queue)
 	// repack all before processing
@@ -100,21 +100,21 @@ func (self *Runner_t) RunRepack(ts time.Time, name string, fn func(agg Aggregate
 	agg.Total(added)
 	for any = 0; any < last; any++ {
 		if packs[any].Len() > 0 {
-			self.queue <- msg_t{name: name, fn: fn, pack: packs[any]}
+			self.queue <- msg_t{name: name, fn: fn, agg: agg, pack: packs[any]}
 		}
 	}
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunPack(name string, fn func(agg Aggregate, in interface{}), agg Aggregate, packs ...interface{}) (last int) {
+func (self *Runner_t) RunPack(name string, fn func(agg Aggregate, in interface{}), agg Aggregate, packs []interface{}) (last int) {
 	self.mx.Lock()
 	if last = cap(self.queue) - len(self.queue); last > len(packs) {
 		last = len(packs)
 	}
 	agg.Total(last)
 	for i := 0; i < last; i++ {
-		self.queue <- msg_t{name: name, fn: fn, pack: packs[i]}
+		self.queue <- msg_t{name: name, fn: fn, agg: agg, pack: packs[i]}
 	}
 	self.mx.Unlock()
 	return
