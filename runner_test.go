@@ -11,7 +11,7 @@ import (
 	"gotest.tools/assert"
 )
 
-func DoSome(in interface{}) {}
+func DoSome(agg Aggregate, in interface{}) {}
 
 type MyPack_t struct {
 	id     string
@@ -37,11 +37,19 @@ func (self *MyPack_t) Resize(i int) {
 	}
 }
 
+type Aggregate_t struct {
+	total int
+}
+
+func (self *Aggregate_t) Total(total int) {
+	self.total = total
+}
+
 func Test_add01(t *testing.T) {
 	r := New(0, 1, 100, 15*time.Second)
 	ts := time.Now()
 
-	total, _, last := r.RunRepack(ts, "default", DoSome, &MyPack_t{id: "1"})
+	total, _, last := r.RunRepack(ts, "default", DoSome, &Aggregate_t{}, &MyPack_t{id: "1"})
 	assert.Equal(t, total, 1)
 	assert.Equal(t, last, 1)
 	assert.Equal(t, r.SizeFilter(ts), 1)
@@ -52,7 +60,7 @@ func Test_add02(t *testing.T) {
 	r := New(0, 2, 100, 15*time.Second)
 	ts := time.Now()
 
-	total, _, last := r.RunRepack(ts, "default", DoSome, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
+	total, _, last := r.RunRepack(ts, "default", DoSome, &Aggregate_t{}, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
 	assert.Equal(t, total, 2)
 	assert.Equal(t, last, 2)
 	assert.Equal(t, r.SizeFilter(ts), 2)
@@ -63,7 +71,7 @@ func Test_add03(t *testing.T) {
 	r := New(0, 2, 100, 15*time.Second)
 	ts := time.Now()
 
-	total, _, last := r.RunRepack(ts, "default", DoSome, &MyPack_t{id: "1"}, &MyPack_t{id: "2"}, &MyPack_t{id: "3"})
+	total, _, last := r.RunRepack(ts, "default", DoSome, &Aggregate_t{}, &MyPack_t{id: "1"}, &MyPack_t{id: "2"}, &MyPack_t{id: "3"})
 	assert.Equal(t, total, 2)
 	assert.Equal(t, last, 2)
 	assert.Equal(t, r.SizeFilter(ts), 2)
@@ -74,19 +82,19 @@ func Test_add04(t *testing.T) {
 	r := New(0, 2, 100, 15*time.Second)
 	ts := time.Now()
 
-	total, _, last := r.RunRepack(ts, "default", DoSome, &MyPack_t{id: "1"})
+	total, _, last := r.RunRepack(ts, "default", DoSome, &Aggregate_t{}, &MyPack_t{id: "1"})
 	assert.Equal(t, total, 1)
 	assert.Equal(t, last, 1)
 	assert.Equal(t, r.SizeFilter(ts), 1)
 	assert.Equal(t, r.SizeQueue(), 1)
 
-	total, _, last = r.RunRepack(ts, "default", DoSome, &MyPack_t{id: "2"}, &MyPack_t{id: "3"})
+	total, _, last = r.RunRepack(ts, "default", DoSome, &Aggregate_t{}, &MyPack_t{id: "2"}, &MyPack_t{id: "3"})
 	assert.Equal(t, total, 1)
 	assert.Equal(t, last, 1)
 	assert.Equal(t, r.SizeFilter(ts), 2)
 	assert.Equal(t, r.SizeQueue(), 2)
 
-	total, _, last = r.RunRepack(ts, "default", DoSome, &MyPack_t{id: "2"}, &MyPack_t{id: "3"})
+	total, _, last = r.RunRepack(ts, "default", DoSome, &Aggregate_t{}, &MyPack_t{id: "2"}, &MyPack_t{id: "3"})
 	assert.Equal(t, total, 0)
 	assert.Equal(t, last, 0)
 	assert.Equal(t, r.SizeFilter(ts), 2)
@@ -97,13 +105,13 @@ func Test_add05(t *testing.T) {
 	r := New(0, 2, 100, 15*time.Second)
 	ts := time.Now()
 
-	total, _, last := r.RunRepack(ts, "default", DoSome, &MyPack_t{id: "1"})
+	total, _, last := r.RunRepack(ts, "default", DoSome, &Aggregate_t{}, &MyPack_t{id: "1"})
 	assert.Equal(t, total, 1)
 	assert.Equal(t, last, 1)
 	assert.Equal(t, r.SizeFilter(ts), 1)
 	assert.Equal(t, r.SizeQueue(), 1)
 
-	total, _, last = r.RunRepack(ts, "default", DoSome, &MyPack_t{id: "2"}, &MyPack_t{id: "3"})
+	total, _, last = r.RunRepack(ts, "default", DoSome, &Aggregate_t{}, &MyPack_t{id: "2"}, &MyPack_t{id: "3"})
 	assert.Equal(t, total, 1)
 	assert.Equal(t, last, 1)
 	assert.Equal(t, r.SizeFilter(ts), 2)
@@ -126,7 +134,7 @@ func Test_add06(t *testing.T) {
 	r := New(0, 2, 100, 5*time.Second)
 	ts := time.Now()
 
-	total, _, last := r.RunRepack(ts, "default", DoSome, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
+	total, _, last := r.RunRepack(ts, "default", DoSome, &Aggregate_t{}, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
 	assert.Equal(t, total, 2)
 	assert.Equal(t, last, 2)
 	ts = ts.Add(-10 * time.Second)
@@ -138,7 +146,7 @@ func Test_add07(t *testing.T) {
 	r := New(0, 2, 100, 5*time.Second)
 	ts := time.Now()
 
-	total, _, last := r.RunRepack(ts, "default", DoSome, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
+	total, _, last := r.RunRepack(ts, "default", DoSome, &Aggregate_t{}, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
 	assert.Equal(t, total, 2)
 	assert.Equal(t, last, 2)
 	ts = ts.Add(10 * time.Second)
@@ -150,7 +158,7 @@ func Test_add08(t *testing.T) {
 	r := New(0, 2, 100, 5*time.Second)
 	ts := time.Now()
 
-	total, _, last := r.RunRepack(ts, "default", DoSome, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
+	total, _, last := r.RunRepack(ts, "default", DoSome, &Aggregate_t{}, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
 	assert.Equal(t, total, 2)
 	assert.Equal(t, last, 2)
 	assert.Equal(t, r.SizeFilter(ts), 2)
@@ -173,7 +181,7 @@ func Test_add09(t *testing.T) {
 	r := New(0, 2, 100, 5*time.Second)
 	ts := time.Now()
 
-	total, _, last := r.RunRepack(ts, "default", DoSome, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
+	total, _, last := r.RunRepack(ts, "default", DoSome, &Aggregate_t{}, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
 	assert.Equal(t, total, 2)
 	assert.Equal(t, last, 2)
 	assert.Equal(t, r.SizeFilter(ts), 2)
@@ -196,7 +204,7 @@ func Test_add10(t *testing.T) {
 	r := New(0, 2, 100, 5*time.Second)
 	ts := time.Now()
 
-	total, _, last := r.RunRepack(ts, "default", DoSome, &MyPack_t{id: "1"}, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
+	total, _, last := r.RunRepack(ts, "default", DoSome, &Aggregate_t{}, &MyPack_t{id: "1"}, &MyPack_t{id: "1"}, &MyPack_t{id: "2"})
 	assert.Equal(t, total, 2)
 	assert.Equal(t, last, 3)
 }
