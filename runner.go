@@ -87,10 +87,10 @@ func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (i int) {
 	return
 }
 
+// repack all before processing
 func (self *Runner_t) RunRepack(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (added int, passed int, last int) {
 	self.mx.Lock()
 	any := cap(self.queue) - len(self.queue)
-	// repack all before processing
 	for any > 0 && last < len(packs) {
 		passed += packs[last].Len()
 		if add := self.__repack(ts, name, packs[last]); add > 0 {
