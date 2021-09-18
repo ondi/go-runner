@@ -75,7 +75,7 @@ func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (i int) {
 			ts,
 			name+pack.IDString(i),
 			func() interface{} { return nil },
-			func(interface{}) interface{} { return nil },
+			func(prev interface{}) interface{} { return prev },
 		); ok {
 			i++
 		} else {
