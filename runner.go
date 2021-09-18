@@ -27,9 +27,11 @@ type Aggregate interface {
 	Total(int)
 }
 
+type Call func(agg Aggregate, in interface{})
+
 type Runner interface {
-	RunRepack(ts time.Time, name string, fn func(agg Aggregate, in interface{}), agg Aggregate, packs []Repack) (added int, passed int, last int)
-	RunPack(name string, fn func(agg Aggregate, in interface{}), agg Aggregate, packs []interface{}) (last int)
+	RunRepack(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (added int, passed int, last int)
+	RunPack(name string, fn Call, agg Aggregate, packs []interface{}) (last int)
 	Remove(ts time.Time, name string, pack PackID) (removed int)
 	Running() int64
 	SizeFilter(ts time.Time) int
@@ -40,7 +42,7 @@ type Runner interface {
 
 type msg_t struct {
 	name string
-	fn   func(agg Aggregate, in interface{})
+	fn   Call
 	agg  Aggregate
 	pack interface{}
 }
@@ -85,7 +87,7 @@ func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (i int) {
 	return
 }
 
-func (self *Runner_t) RunRepack(ts time.Time, name string, fn func(agg Aggregate, in interface{}), agg Aggregate, packs []Repack) (added int, passed int, last int) {
+func (self *Runner_t) RunRepack(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (added int, passed int, last int) {
 	self.mx.Lock()
 	any := cap(self.queue) - len(self.queue)
 	// repack all before processing
@@ -107,7 +109,7 @@ func (self *Runner_t) RunRepack(ts time.Time, name string, fn func(agg Aggregate
 	return
 }
 
-func (self *Runner_t) RunPack(name string, fn func(agg Aggregate, in interface{}), agg Aggregate, packs []interface{}) (last int) {
+func (self *Runner_t) RunPack(name string, fn Call, agg Aggregate, packs []interface{}) (last int) {
 	self.mx.Lock()
 	if last = cap(self.queue) - len(self.queue); last > len(packs) {
 		last = len(packs)
