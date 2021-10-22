@@ -30,9 +30,7 @@ type Aggregate interface {
 type Call func(agg Aggregate, in interface{})
 
 type Runner interface {
-	RunRepack(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (added int, passed int, last int)
-	RunPack(name string, fn Call, agg Aggregate, packs []interface{}) (last int)
-	Remove(ts time.Time, name string, pack PackID) (removed int)
+	RunRepack(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (queued int, input int, last int)
 	Running() int64
 	SizeFilter(ts time.Time) int
 	SizeQueue() int
@@ -44,7 +42,8 @@ type msg_t struct {
 	name string
 	fn   Call
 	agg  Aggregate
-	pack interface{}
+	pack PackID
+	ts   time.Time
 }
 
 type Runner_t struct {
@@ -67,6 +66,28 @@ func New(threads int, queue int, filter_limit int, filter_ttl time.Duration) Run
 	return self
 }
 
+// repack all before processing
+func (self *Runner_t) RunRepack(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (queued int, input int, last int) {
+	self.mx.Lock()
+	any := cap(self.queue) - len(self.queue)
+	for any > 0 && last < len(packs) {
+		input += packs[last].Len()
+		if add := self.__repack(ts, name, packs[last]); add > 0 {
+			queued += add
+			any--
+		}
+		last++
+	}
+	agg.Total(queued)
+	for any = 0; any < last; any++ {
+		if packs[any].Len() > 0 {
+			self.queue <- msg_t{name: name, fn: fn, agg: agg, pack: packs[any], ts: ts}
+		}
+	}
+	self.mx.Unlock()
+	return
+}
+
 func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (i int) {
 	var ok bool
 	last := pack.Len() - 1
@@ -87,44 +108,9 @@ func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (i int) {
 	return
 }
 
-// repack all before processing
-func (self *Runner_t) RunRepack(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (added int, passed int, last int) {
-	self.mx.Lock()
-	any := cap(self.queue) - len(self.queue)
-	for any > 0 && last < len(packs) {
-		passed += packs[last].Len()
-		if add := self.__repack(ts, name, packs[last]); add > 0 {
-			added += add
-			any--
-		}
-		last++
-	}
-	agg.Total(added)
-	for any = 0; any < last; any++ {
-		if packs[any].Len() > 0 {
-			self.queue <- msg_t{name: name, fn: fn, agg: agg, pack: packs[any]}
-		}
-	}
-	self.mx.Unlock()
-	return
-}
-
-func (self *Runner_t) RunPack(name string, fn Call, agg Aggregate, packs []interface{}) (last int) {
-	self.mx.Lock()
-	if last = cap(self.queue) - len(self.queue); last > len(packs) {
-		last = len(packs)
-	}
-	agg.Total(last)
-	for i := 0; i < last; i++ {
-		self.queue <- msg_t{name: name, fn: fn, agg: agg, pack: packs[i]}
-	}
-	self.mx.Unlock()
-	return
-}
-
-func (self *Runner_t) Remove(ts time.Time, name string, pack PackID) (removed int) {
-	self.mx.Lock()
+func (self *Runner_t) remove(ts time.Time, name string, pack PackID) (removed int) {
 	var ok bool
+	self.mx.Lock()
 	for i := 0; i < pack.Len(); i++ {
 		if _, ok = self.cx.Remove(ts, name+pack.IDString(i)); ok {
 			removed++
@@ -139,6 +125,7 @@ func (self *Runner_t) run() {
 	for v := range self.queue {
 		atomic.AddInt64(&self.running, 1)
 		v.fn(v.agg, v.pack)
+		self.remove(v.ts, v.name, v.pack)
 		atomic.AddInt64(&self.running, -1)
 	}
 }
