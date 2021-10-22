@@ -31,6 +31,7 @@ type Call func(agg Aggregate, in interface{})
 
 type Runner interface {
 	RunRepack(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (queued int, input int, last int)
+	Remove(ts time.Time, name string, pack PackID) (removed int)
 	Running() int64
 	SizeFilter(ts time.Time) int
 	SizeQueue() int
@@ -66,6 +67,26 @@ func New(threads int, queue int, filter_limit int, filter_ttl time.Duration) Run
 	return self
 }
 
+func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (i int) {
+	var ok bool
+	last := pack.Len() - 1
+	for i <= last {
+		if _, ok = self.cx.Create(
+			ts,
+			name+pack.IDString(i),
+			func() interface{} { return nil },
+			func(prev interface{}) interface{} { return prev },
+		); ok {
+			i++
+		} else {
+			pack.Swap(i, last)
+			last--
+		}
+	}
+	pack.Resize(i)
+	return
+}
+
 // repack all before processing
 func (self *Runner_t) RunRepack(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (queued int, input int, last int) {
 	self.mx.Lock()
@@ -88,27 +109,7 @@ func (self *Runner_t) RunRepack(ts time.Time, name string, fn Call, agg Aggregat
 	return
 }
 
-func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (i int) {
-	var ok bool
-	last := pack.Len() - 1
-	for i <= last {
-		if _, ok = self.cx.Create(
-			ts,
-			name+pack.IDString(i),
-			func() interface{} { return nil },
-			func(prev interface{}) interface{} { return prev },
-		); ok {
-			i++
-		} else {
-			pack.Swap(i, last)
-			last--
-		}
-	}
-	pack.Resize(i)
-	return
-}
-
-func (self *Runner_t) remove(ts time.Time, name string, pack PackID) (removed int) {
+func (self *Runner_t) Remove(ts time.Time, name string, pack PackID) (removed int) {
 	var ok bool
 	self.mx.Lock()
 	for i := 0; i < pack.Len(); i++ {
@@ -125,7 +126,7 @@ func (self *Runner_t) run() {
 	for v := range self.queue {
 		atomic.AddInt64(&self.running, 1)
 		v.fn(v.agg, v.pack)
-		self.remove(v.ts, v.name, v.pack)
+		self.Remove(v.ts, v.name, v.pack)
 		atomic.AddInt64(&self.running, -1)
 	}
 }

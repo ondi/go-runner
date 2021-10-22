@@ -113,16 +113,15 @@ func Test_add05(t *testing.T) {
 	assert.Equal(t, r.SizeFilter(ts), 2)
 	assert.Equal(t, r.SizeQueue(), 2)
 
-	rr := r.(*Runner_t)
-	removed := rr.remove(ts, "default", &MyPack_t{In: []string{"3"}})
+	removed := r.Remove(ts, "default", &MyPack_t{In: []string{"3"}})
 	assert.Equal(t, removed, 0)
 	assert.Equal(t, r.SizeFilter(ts), 2)
 
-	removed = rr.remove(ts, "default", &MyPack_t{In: []string{"2"}})
+	removed = r.Remove(ts, "default", &MyPack_t{In: []string{"2"}})
 	assert.Equal(t, removed, 1)
 	assert.Equal(t, r.SizeFilter(ts), 1)
 
-	removed = rr.remove(ts, "default", &MyPack_t{In: []string{"1"}})
+	removed = r.Remove(ts, "default", &MyPack_t{In: []string{"1"}})
 	assert.Equal(t, removed, 1)
 	assert.Equal(t, r.SizeFilter(ts), 0)
 }
@@ -163,13 +162,12 @@ func Test_add08(t *testing.T) {
 
 	ts = ts.Add(-10 * time.Second)
 
-	rr := r.(*Runner_t)
-	removed := rr.remove(ts, "default", &MyPack_t{In: []string{"1"}})
+	removed := r.Remove(ts, "default", &MyPack_t{In: []string{"1"}})
 	assert.Equal(t, removed, 1)
 	assert.Equal(t, r.SizeFilter(ts), 1)
 	assert.Equal(t, r.SizeQueue(), 2)
 
-	removed = rr.remove(ts, "default", &MyPack_t{In: []string{"2"}})
+	removed = r.Remove(ts, "default", &MyPack_t{In: []string{"2"}})
 	assert.Equal(t, removed, 1)
 	assert.Equal(t, r.SizeFilter(ts), 0)
 	assert.Equal(t, r.SizeQueue(), 2)
@@ -187,13 +185,12 @@ func Test_add09(t *testing.T) {
 
 	ts = ts.Add(10 * time.Second)
 
-	rr := r.(*Runner_t)
-	removed := rr.remove(ts, "default", &MyPack_t{In: []string{"1"}})
+	removed := r.Remove(ts, "default", &MyPack_t{In: []string{"1"}})
 	assert.Equal(t, removed, 0)
 	assert.Equal(t, r.SizeFilter(ts), 0)
 	assert.Equal(t, r.SizeQueue(), 2)
 
-	removed = rr.remove(ts, "default", &MyPack_t{In: []string{"2"}})
+	removed = r.Remove(ts, "default", &MyPack_t{In: []string{"2"}})
 	assert.Equal(t, removed, 0)
 	assert.Equal(t, r.SizeFilter(ts), 0)
 	assert.Equal(t, r.SizeQueue(), 2)
