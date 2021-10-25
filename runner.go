@@ -65,36 +65,37 @@ func New(threads int, queue int, filter_limit int, filter_ttl time.Duration) Run
 	return self
 }
 
-func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (i int) {
+func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added int) {
 	var ok bool
 	last := pack.Len() - 1
-	for i <= last {
+	for added <= last {
 		if _, ok = self.cx.Create(
 			ts,
-			name+pack.IDString(i),
+			name+pack.IDString(added),
 			func() interface{} { return nil },
 			func(prev interface{}) interface{} { return prev },
 		); ok {
-			i++
+			added++
 		} else {
-			pack.Swap(i, last)
+			pack.Swap(added, last)
 			last--
 		}
 	}
-	pack.Resize(i)
 	return
 }
 
 // repack all before processing
 func (self *Runner_t) RunRepack(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (queued int, input int, last int) {
+	var add int
 	self.mx.Lock()
 	any := cap(self.queue) - len(self.queue)
 	for any > 0 && last < len(packs) {
 		input += packs[last].Len()
-		if add := self.__repack(ts, name, packs[last]); add > 0 {
+		if add = self.__repack(ts, name, packs[last]); add > 0 {
 			queued += add
 			any--
 		}
+		packs[last].Resize(add)
 		last++
 	}
 	agg.Total(queued)
