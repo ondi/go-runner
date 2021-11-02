@@ -75,30 +75,45 @@ func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added in
 			last--
 		}
 	}
+	pack.Resize(added)
 	return
 }
 
 // Total() should be calculated before processing
-func (self *Runner_t) RunRepack(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (queued int, input int, last int) {
-	var add int
-	self.mx.Lock()
-	any := cap(self.queue) - len(self.queue)
-	for any > 0 && last < len(packs) {
+func (self *Runner_t) __queue(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int, last int) {
+	var added int
+	available := cap(self.queue) - len(self.queue)
+	for available > 0 && last < len(packs) {
 		input += packs[last].Len()
-		if add = self.__repack(ts, name, packs[last]); add > 0 {
-			queued += add
-			any--
+		if added = self.__repack(ts, name, packs[last]); added > 0 {
+			queued += added
+			available--
 		}
-		packs[last].Resize(add)
 		last++
 	}
 	agg.Total(queued)
-	for any = 0; any < last; any++ {
-		if packs[any].Len() > 0 {
-			self.queued[name] += packs[any].Len()
-			self.queue <- msg_t{name: name, fn: fn, agg: agg, pack: packs[any], ts: ts}
+	for available = 0; available < last; available++ {
+		if packs[available].Len() > 0 {
+			self.queued[name]++
+			self.queue <- msg_t{name: name, fn: fn, agg: agg, pack: packs[available], ts: ts}
 		}
 	}
+	return
+}
+
+func (self *Runner_t) RunAny(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int, last int) {
+	self.mx.Lock()
+	queued, input, last = self.__queue(ts, name, fn, agg, packs)
+	self.mx.Unlock()
+	return
+}
+
+func (self *Runner_t) RunExclusive(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int, last int) {
+	self.mx.Lock()
+	if _, ok := self.queued[name]; ok {
+		return
+	}
+	queued, input, last = self.__queue(ts, name, fn, agg, packs)
 	self.mx.Unlock()
 	return
 }
@@ -112,10 +127,10 @@ func (self *Runner_t) remove(ts time.Time, name string, pack PackID) (removed in
 		}
 	}
 	if temp, ok := self.queued[name]; ok {
-		if temp == pack.Len() {
+		if temp == 1 {
 			delete(self.queued, name)
 		} else {
-			self.queued[name] -= pack.Len()
+			self.queued[name]--
 		}
 	}
 	self.mx.Unlock()
