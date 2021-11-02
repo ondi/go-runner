@@ -49,14 +49,16 @@ type Runner_t struct {
 	mx      sync.Mutex
 	cx      *cache.Cache_t
 	queue   chan msg_t
+	queued  map[string]int
 	running int64
 	wg      sync.WaitGroup
 }
 
 func New(threads int, queue int, filter_limit int, filter_ttl time.Duration) Runner {
 	self := &Runner_t{
-		cx:    cache.New(filter_limit, filter_ttl, cache.Drop),
-		queue: make(chan msg_t, queue),
+		cx:     cache.New(filter_limit, filter_ttl, cache.Drop),
+		queue:  make(chan msg_t, queue),
+		queued: map[string]int{},
 	}
 	for i := 0; i < threads; i++ {
 		self.wg.Add(1)
@@ -84,7 +86,7 @@ func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added in
 	return
 }
 
-// repack all before processing
+// Total() should be calculated before processing
 func (self *Runner_t) RunRepack(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (queued int, input int, last int) {
 	var add int
 	self.mx.Lock()
@@ -92,6 +94,7 @@ func (self *Runner_t) RunRepack(ts time.Time, name string, fn Call, agg Aggregat
 	for any > 0 && last < len(packs) {
 		input += packs[last].Len()
 		if add = self.__repack(ts, name, packs[last]); add > 0 {
+			self.queued[name] += add
 			queued += add
 			any--
 		}
@@ -116,6 +119,13 @@ func (self *Runner_t) Remove(ts time.Time, name string, pack PackID) (removed in
 			removed++
 		}
 	}
+	if temp, ok := self.queued[name]; ok {
+		if temp == removed {
+			delete(self.queued, name)
+		} else {
+			self.queued[name] -= removed
+		}
+	}
 	self.mx.Unlock()
 	return
 }
@@ -132,6 +142,24 @@ func (self *Runner_t) run() {
 
 func (self *Runner_t) Running() int64 {
 	return atomic.LoadInt64(&self.running)
+}
+
+func (self *Runner_t) Queued(name string) (res int) {
+	self.mx.Lock()
+	res = self.queued[name]
+	self.mx.Unlock()
+	return
+}
+
+func (self *Runner_t) RangeQueued(fn func(key string, value int) bool) {
+	self.mx.Lock()
+	for k, v := range self.queued {
+		if !fn(k, v) {
+			self.mx.Unlock()
+			return
+		}
+	}
+	self.mx.Unlock()
 }
 
 func (self *Runner_t) SizeFilter(ts time.Time) (res int) {
