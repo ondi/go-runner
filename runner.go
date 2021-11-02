@@ -169,6 +169,12 @@ func (self *Runner_t) RangeQueued(fn func(key string, value int) bool) {
 	self.mx.Unlock()
 }
 
+func (self *Runner_t) RangeFilter(ts time.Time, fn func(key interface{}, value interface{}) bool) {
+	self.mx.Lock()
+	self.cx.Range(ts, fn)
+	self.mx.Unlock()
+}
+
 func (self *Runner_t) SizeFilter(ts time.Time) (res int) {
 	self.mx.Lock()
 	res = self.cx.Size(ts)
