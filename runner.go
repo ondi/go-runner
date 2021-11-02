@@ -29,14 +29,6 @@ type Aggregate interface {
 
 type Call func(agg Aggregate, in interface{})
 
-type Runner interface {
-	RunRepack(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (queued int, input int, last int)
-	Running() int64
-	SizeFilter(ts time.Time) int
-	SizeQueue() int
-	Close()
-}
-
 type msg_t struct {
 	name string
 	fn   Call
@@ -54,7 +46,7 @@ type Runner_t struct {
 	wg      sync.WaitGroup
 }
 
-func New(threads int, queue int, filter_limit int, filter_ttl time.Duration) Runner {
+func New(threads int, queue int, filter_limit int, filter_ttl time.Duration) *Runner_t {
 	self := &Runner_t{
 		cx:     cache.New(filter_limit, filter_ttl, cache.Drop),
 		queue:  make(chan msg_t, queue),
@@ -111,7 +103,7 @@ func (self *Runner_t) RunRepack(ts time.Time, name string, fn Call, agg Aggregat
 	return
 }
 
-func (self *Runner_t) Remove(ts time.Time, name string, pack PackID) (removed int) {
+func (self *Runner_t) remove(ts time.Time, name string, pack PackID) (removed int) {
 	var ok bool
 	self.mx.Lock()
 	for i := 0; i < pack.Len(); i++ {
@@ -135,7 +127,7 @@ func (self *Runner_t) run() {
 	for v := range self.queue {
 		atomic.AddInt64(&self.running, 1)
 		v.fn(v.agg, v.pack)
-		self.Remove(v.ts, v.name, v.pack)
+		self.remove(v.ts, v.name, v.pack)
 		atomic.AddInt64(&self.running, -1)
 	}
 }
