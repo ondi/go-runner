@@ -86,7 +86,6 @@ func (self *Runner_t) RunRepack(ts time.Time, name string, fn Call, agg Aggregat
 	for any > 0 && last < len(packs) {
 		input += packs[last].Len()
 		if add = self.__repack(ts, name, packs[last]); add > 0 {
-			self.queued[name] += add
 			queued += add
 			any--
 		}
@@ -96,6 +95,7 @@ func (self *Runner_t) RunRepack(ts time.Time, name string, fn Call, agg Aggregat
 	agg.Total(queued)
 	for any = 0; any < last; any++ {
 		if packs[any].Len() > 0 {
+			self.queued[name] += packs[any].Len()
 			self.queue <- msg_t{name: name, fn: fn, agg: agg, pack: packs[any], ts: ts}
 		}
 	}
@@ -112,10 +112,10 @@ func (self *Runner_t) remove(ts time.Time, name string, pack PackID) (removed in
 		}
 	}
 	if temp, ok := self.queued[name]; ok {
-		if temp == removed {
+		if temp == pack.Len() {
 			delete(self.queued, name)
 		} else {
-			self.queued[name] -= removed
+			self.queued[name] -= pack.Len()
 		}
 	}
 	self.mx.Unlock()
