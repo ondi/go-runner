@@ -111,6 +111,7 @@ func (self *Runner_t) RunAny(ts time.Time, name string, fn Call, agg Aggregate, 
 func (self *Runner_t) RunExclusive(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int, last int) {
 	self.mx.Lock()
 	if _, ok := self.queued[name]; ok {
+		self.mx.Unlock()
 		return
 	}
 	input, queued, last = self.__queue(ts, name, fn, agg, packs)
