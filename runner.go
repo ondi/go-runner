@@ -79,13 +79,14 @@ func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added in
 	return
 }
 
-// Total() should be calculated before processing
+// Total() should be called before processing
 func (self *Runner_t) __queue(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int, last int) {
 	var added int
 	available := cap(self.queue) - len(self.queue)
 	for available > 0 && last < len(packs) {
 		input += packs[last].Len()
 		if added = self.__repack(ts, name, packs[last]); added > 0 {
+			self.queued[name]++
 			queued += added
 			available--
 		}
@@ -94,7 +95,6 @@ func (self *Runner_t) __queue(ts time.Time, name string, fn Call, agg Aggregate,
 	agg.Total(queued)
 	for available = 0; available < last; available++ {
 		if packs[available].Len() > 0 {
-			self.queued[name]++
 			self.queue <- msg_t{name: name, fn: fn, agg: agg, pack: packs[available], ts: ts}
 		}
 	}
