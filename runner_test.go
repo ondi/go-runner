@@ -200,7 +200,7 @@ func Test_add10(t *testing.T) {
 	r := New(0, 2, 100, 5*time.Second)
 	ts := time.Now()
 
-	total, _, last := r.RunAny(ts, "default", DoSome, &Aggregate_t{}, []Repack{&MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"2"}}})
+	_, total, last := r.RunAny(ts, "default", DoSome, &Aggregate_t{}, []Repack{&MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"2"}}})
 	assert.Equal(t, total, 2)
 	assert.Equal(t, last, 3)
 }

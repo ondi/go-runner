@@ -127,12 +127,10 @@ func (self *Runner_t) remove(ts time.Time, name string, pack PackID) (removed in
 			removed++
 		}
 	}
-	if temp, ok := self.queued[name]; ok {
-		if temp == 1 {
-			delete(self.queued, name)
-		} else {
-			self.queued[name]--
-		}
+	if temp, ok := self.queued[name]; temp == 1 {
+		delete(self.queued, name)
+	} else if ok {
+		self.queued[name]--
 	}
 	self.mx.Unlock()
 	return
