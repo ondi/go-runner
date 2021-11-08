@@ -61,8 +61,8 @@ func New(threads int, queue int, filter_limit int, filter_ttl time.Duration) *Ru
 
 func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added int) {
 	var ok bool
-	last := pack.Len() - 1
-	for added <= last {
+	last := pack.Len()
+	for added < last {
 		if _, ok = self.cx.Create(
 			ts,
 			name+pack.IDString(added),
@@ -71,8 +71,8 @@ func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added in
 		); ok {
 			added++
 		} else {
-			pack.Swap(added, last)
 			last--
+			pack.Swap(added, last)
 		}
 	}
 	pack.Resize(added)
