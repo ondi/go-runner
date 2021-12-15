@@ -80,8 +80,8 @@ func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added in
 }
 
 // Total() should be called before processing
-func (self *Runner_t) __queue(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int, last int) {
-	var added int
+func (self *Runner_t) __queue(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int) {
+	var last, added int
 	available := cap(self.queue) - len(self.queue)
 	for available > 0 && last < len(packs) {
 		input += packs[last].Len()
@@ -101,20 +101,20 @@ func (self *Runner_t) __queue(ts time.Time, name string, fn Call, agg Aggregate,
 	return
 }
 
-func (self *Runner_t) RunAny(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int, last int) {
+func (self *Runner_t) RunAny(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int) {
 	self.mx.Lock()
-	input, queued, last = self.__queue(ts, name, fn, agg, packs)
+	input, queued = self.__queue(ts, name, fn, agg, packs)
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunExclusive(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int, last int) {
+func (self *Runner_t) RunExclusive(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int) {
 	self.mx.Lock()
 	if _, ok := self.queued[name]; ok {
 		self.mx.Unlock()
 		return
 	}
-	input, queued, last = self.__queue(ts, name, fn, agg, packs)
+	input, queued = self.__queue(ts, name, fn, agg, packs)
 	self.mx.Unlock()
 	return
 }
