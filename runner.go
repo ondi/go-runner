@@ -69,7 +69,7 @@ func (self *Runner_t) __evict(key interface{}, value interface{}) {
 	if temp, ok := self.queued[k.name]; temp == 1 {
 		delete(self.queued, k.name)
 	} else if ok {
-		self.queued[k.name]--
+		self.queued[k.name] -= 1
 	}
 }
 
@@ -100,7 +100,7 @@ func (self *Runner_t) __queue(ts time.Time, name string, fn Call, agg Aggregate,
 	for available > 0 && last < len(packs) {
 		input += packs[last].Len()
 		if added = self.__repack(ts, name, packs[last]); added > 0 {
-			self.queued[name]++
+			self.queued[name] += added
 			queued += added
 			available--
 		}
