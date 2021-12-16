@@ -27,14 +27,14 @@ type Aggregate interface {
 	Total(int)
 }
 
-type Call func(agg Aggregate, in interface{}) (clean_filter bool)
+type Call func(agg Aggregate, in interface{}) (ok bool)
 
 type msg_t struct {
+	ts   time.Time
 	name string
 	fn   Call
 	agg  Aggregate
 	pack PackID
-	ts   time.Time
 }
 
 type Runner_t struct {
@@ -46,17 +46,31 @@ type Runner_t struct {
 	wg      sync.WaitGroup
 }
 
+type filter_key struct {
+	name string
+	id   string
+}
+
 func New(threads int, queue int, filter_limit int, filter_ttl time.Duration) *Runner_t {
 	self := &Runner_t{
-		cx:     cache.New(filter_limit, filter_ttl, cache.Drop),
 		queue:  make(chan msg_t, queue),
 		queued: map[string]int{},
 	}
+	self.cx = cache.New(filter_limit, filter_ttl, self.__evict)
 	for i := 0; i < threads; i++ {
 		self.wg.Add(1)
 		go self.run()
 	}
 	return self
+}
+
+func (self *Runner_t) __evict(key interface{}, value interface{}) {
+	k := key.(filter_key)
+	if temp, ok := self.queued[k.name]; temp == 1 {
+		delete(self.queued, k.name)
+	} else if ok {
+		self.queued[k.name]--
+	}
 }
 
 func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added int) {
@@ -65,7 +79,7 @@ func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added in
 	for added < last {
 		if _, ok = self.cx.Create(
 			ts,
-			name+pack.IDString(added),
+			filter_key{name: name, id: pack.IDString(added)},
 			func() interface{} { return nil },
 			func(prev interface{}) interface{} { return prev },
 		); ok {
@@ -123,14 +137,14 @@ func (self *Runner_t) Remove(ts time.Time, name string, pack PackID) (removed in
 	var ok bool
 	self.mx.Lock()
 	for i := 0; i < pack.Len(); i++ {
-		if _, ok = self.cx.Remove(ts, name+pack.IDString(i)); ok {
+		if _, ok = self.cx.Remove(ts, filter_key{name: name, id: pack.IDString(i)}); ok {
 			removed++
 		}
 	}
-	if temp, ok := self.queued[name]; temp == 1 {
+	if temp, ok := self.queued[name]; temp == removed {
 		delete(self.queued, name)
 	} else if ok {
-		self.queued[name]--
+		self.queued[name] -= removed
 	}
 	self.mx.Unlock()
 	return
