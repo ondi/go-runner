@@ -27,7 +27,7 @@ type Aggregate interface {
 	Total(int)
 }
 
-type Call func(agg Aggregate, in interface{})
+type Call func(agg Aggregate, in interface{}) (clean_filter bool)
 
 type msg_t struct {
 	name string
@@ -119,7 +119,7 @@ func (self *Runner_t) RunExclusive(ts time.Time, name string, fn Call, agg Aggre
 	return
 }
 
-func (self *Runner_t) remove(ts time.Time, name string, pack PackID) (removed int) {
+func (self *Runner_t) Remove(ts time.Time, name string, pack PackID) (removed int) {
 	var ok bool
 	self.mx.Lock()
 	for i := 0; i < pack.Len(); i++ {
@@ -140,8 +140,9 @@ func (self *Runner_t) run() {
 	defer self.wg.Done()
 	for v := range self.queue {
 		atomic.AddInt64(&self.running, 1)
-		v.fn(v.agg, v.pack)
-		self.remove(v.ts, v.name, v.pack)
+		if v.fn(v.agg, v.pack) {
+			self.Remove(v.ts, v.name, v.pack)
+		}
 		atomic.AddInt64(&self.running, -1)
 	}
 }

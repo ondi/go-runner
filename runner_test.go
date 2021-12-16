@@ -11,7 +11,7 @@ import (
 	"gotest.tools/assert"
 )
 
-func DoSome(agg Aggregate, in interface{}) {}
+func DoSome(agg Aggregate, in interface{}) (clean_filter bool) { return true }
 
 type MyPack_t struct {
 	In []string
@@ -113,15 +113,15 @@ func Test_add05(t *testing.T) {
 	assert.Equal(t, r.SizeFilter(ts), 2)
 	assert.Equal(t, r.SizeQueue(), 2)
 
-	removed := r.remove(ts, "default", &MyPack_t{In: []string{"3"}})
+	removed := r.Remove(ts, "default", &MyPack_t{In: []string{"3"}})
 	assert.Equal(t, removed, 0)
 	assert.Equal(t, r.SizeFilter(ts), 2)
 
-	removed = r.remove(ts, "default", &MyPack_t{In: []string{"2"}})
+	removed = r.Remove(ts, "default", &MyPack_t{In: []string{"2"}})
 	assert.Equal(t, removed, 1)
 	assert.Equal(t, r.SizeFilter(ts), 1)
 
-	removed = r.remove(ts, "default", &MyPack_t{In: []string{"1"}})
+	removed = r.Remove(ts, "default", &MyPack_t{In: []string{"1"}})
 	assert.Equal(t, removed, 1)
 	assert.Equal(t, r.SizeFilter(ts), 0)
 }
@@ -162,12 +162,12 @@ func Test_add08(t *testing.T) {
 
 	ts = ts.Add(-10 * time.Second)
 
-	removed := r.remove(ts, "default", &MyPack_t{In: []string{"1"}})
+	removed := r.Remove(ts, "default", &MyPack_t{In: []string{"1"}})
 	assert.Equal(t, removed, 1)
 	assert.Equal(t, r.SizeFilter(ts), 1)
 	assert.Equal(t, r.SizeQueue(), 2)
 
-	removed = r.remove(ts, "default", &MyPack_t{In: []string{"2"}})
+	removed = r.Remove(ts, "default", &MyPack_t{In: []string{"2"}})
 	assert.Equal(t, removed, 1)
 	assert.Equal(t, r.SizeFilter(ts), 0)
 	assert.Equal(t, r.SizeQueue(), 2)
@@ -185,12 +185,12 @@ func Test_add09(t *testing.T) {
 
 	ts = ts.Add(10 * time.Second)
 
-	removed := r.remove(ts, "default", &MyPack_t{In: []string{"1"}})
+	removed := r.Remove(ts, "default", &MyPack_t{In: []string{"1"}})
 	assert.Equal(t, removed, 0)
 	assert.Equal(t, r.SizeFilter(ts), 0)
 	assert.Equal(t, r.SizeQueue(), 2)
 
-	removed = r.remove(ts, "default", &MyPack_t{In: []string{"2"}})
+	removed = r.Remove(ts, "default", &MyPack_t{In: []string{"2"}})
 	assert.Equal(t, removed, 0)
 	assert.Equal(t, r.SizeFilter(ts), 0)
 	assert.Equal(t, r.SizeQueue(), 2)
