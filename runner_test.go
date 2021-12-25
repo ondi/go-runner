@@ -11,7 +11,7 @@ import (
 	"gotest.tools/assert"
 )
 
-func DoSome(agg Aggregate, in interface{}) (clean_filter bool) { return true }
+func DoSome(agg Aggregate, in interface{}) {}
 
 type MyPack_t struct {
 	In []string

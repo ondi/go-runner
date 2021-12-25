@@ -27,7 +27,7 @@ type Aggregate interface {
 	Total(int)
 }
 
-type Call func(agg Aggregate, in interface{}) (ok bool)
+type Call func(agg Aggregate, in interface{})
 
 type msg_t struct {
 	ts   time.Time
@@ -154,9 +154,7 @@ func (self *Runner_t) run() {
 	defer self.wg.Done()
 	for v := range self.queue {
 		atomic.AddInt64(&self.running, 1)
-		if v.fn(v.agg, v.pack) {
-			self.Remove(v.ts, v.name, v.pack)
-		}
+		v.fn(v.agg, v.pack)
 		atomic.AddInt64(&self.running, -1)
 	}
 }
