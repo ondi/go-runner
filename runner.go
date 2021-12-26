@@ -122,17 +122,6 @@ func (self *Runner_t) RunAny(ts time.Time, name string, fn Call, agg Aggregate, 
 	return
 }
 
-func (self *Runner_t) RunExclusive(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int) {
-	self.mx.Lock()
-	if _, ok := self.queued[name]; ok {
-		self.mx.Unlock()
-		return
-	}
-	input, queued = self.__queue(ts, name, fn, agg, packs)
-	self.mx.Unlock()
-	return
-}
-
 func (self *Runner_t) Remove(ts time.Time, name string, pack PackID) (removed int) {
 	var ok bool
 	self.mx.Lock()
