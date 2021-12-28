@@ -30,7 +30,6 @@ type Aggregate interface {
 type Call func(agg Aggregate, in interface{})
 
 type msg_t struct {
-	ts   time.Time
 	name string
 	fn   Call
 	agg  Aggregate
@@ -38,12 +37,13 @@ type msg_t struct {
 }
 
 type Runner_t struct {
-	mx      sync.Mutex
-	cx      *cache.Cache_t
-	queue   chan msg_t
-	queued  map[string]int
-	running int64
-	wg      sync.WaitGroup
+	mx         sync.Mutex
+	cx         *cache.Cache_t
+	queue      chan msg_t
+	queued     map[string]int
+	queue_size int
+	running    int64
+	wg         sync.WaitGroup
 }
 
 type filter_key struct {
@@ -51,12 +51,13 @@ type filter_key struct {
 	id   string
 }
 
-func New(threads int, queue int, filter_limit int, filter_ttl time.Duration) *Runner_t {
+func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration) *Runner_t {
 	self := &Runner_t{
-		queue:  make(chan msg_t, queue),
-		queued: map[string]int{},
+		queue:      make(chan msg_t, queue_size),
+		queued:     map[string]int{},
+		queue_size: queue_size,
 	}
-	self.cx = cache.New(filter_limit, filter_ttl, self.__evict)
+	self.cx = cache.New(filter_size, filter_ttl, self.__evict)
 	for i := 0; i < threads; i++ {
 		self.wg.Add(1)
 		go self.run()
@@ -96,7 +97,7 @@ func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added in
 // Total() should be called before processing
 func (self *Runner_t) __queue(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int) {
 	var last, added int
-	available := cap(self.queue) - len(self.queue)
+	available := self.queue_size - len(self.queue)
 	for available > 0 && last < len(packs) {
 		input += packs[last].Len()
 		if added = self.__repack(ts, name, packs[last]); added > 0 {
@@ -109,7 +110,7 @@ func (self *Runner_t) __queue(ts time.Time, name string, fn Call, agg Aggregate,
 	agg.Total(queued)
 	for available = 0; available < last; available++ {
 		if packs[available].Len() > 0 {
-			self.queue <- msg_t{name: name, fn: fn, agg: agg, pack: packs[available], ts: ts}
+			self.queue <- msg_t{name: name, fn: fn, agg: agg, pack: packs[available]}
 		}
 	}
 	return
@@ -152,13 +153,6 @@ func (self *Runner_t) Running() int64 {
 	return atomic.LoadInt64(&self.running)
 }
 
-func (self *Runner_t) Queued(name string) (res int) {
-	self.mx.Lock()
-	res = self.queued[name]
-	self.mx.Unlock()
-	return
-}
-
 func (self *Runner_t) RangeQueued(fn func(key string, value int) bool) {
 	self.mx.Lock()
 	for k, v := range self.queued {
@@ -188,6 +182,9 @@ func (self *Runner_t) SizeQueue() int {
 }
 
 func (self *Runner_t) Close() {
+	self.mx.Lock()
+	self.queue_size = 0
+	self.mx.Unlock()
 	close(self.queue)
 	self.wg.Wait()
 }
