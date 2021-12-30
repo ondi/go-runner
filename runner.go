@@ -6,7 +6,6 @@ package runner
 
 import (
 	"sync"
-	"sync/atomic"
 	"time"
 
 	cache "github.com/ondi/go-ttl-cache"
@@ -40,9 +39,8 @@ type Runner_t struct {
 	mx         sync.Mutex
 	cx         *cache.Cache_t
 	queue      chan msg_t
-	queued     map[string]int
 	queue_size int
-	running    int64
+	running    map[string]int
 	wg         sync.WaitGroup
 }
 
@@ -54,24 +52,15 @@ type filter_key struct {
 func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration) *Runner_t {
 	self := &Runner_t{
 		queue:      make(chan msg_t, queue_size),
-		queued:     map[string]int{},
+		running:    map[string]int{},
 		queue_size: queue_size,
 	}
-	self.cx = cache.New(filter_size, filter_ttl, self.__evict)
+	self.cx = cache.New(filter_size, filter_ttl, cache.Drop)
 	for i := 0; i < threads; i++ {
 		self.wg.Add(1)
 		go self.run()
 	}
 	return self
-}
-
-func (self *Runner_t) __evict(key interface{}, value interface{}) {
-	k := key.(filter_key)
-	if temp, ok := self.queued[k.name]; temp == 1 {
-		delete(self.queued, k.name)
-	} else if ok {
-		self.queued[k.name] -= 1
-	}
 }
 
 func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added int) {
@@ -101,7 +90,6 @@ func (self *Runner_t) __queue(ts time.Time, name string, fn Call, agg Aggregate,
 	for available > 0 && last < len(packs) {
 		input += packs[last].Len()
 		if added = self.__repack(ts, name, packs[last]); added > 0 {
-			self.queued[name] += added
 			queued += added
 			available--
 		}
@@ -110,6 +98,7 @@ func (self *Runner_t) __queue(ts time.Time, name string, fn Call, agg Aggregate,
 	agg.Total(queued)
 	for available = 0; available < last; available++ {
 		if packs[available].Len() > 0 {
+			self.running[name]++
 			self.queue <- msg_t{name: name, fn: fn, agg: agg, pack: packs[available]}
 		}
 	}
@@ -123,6 +112,16 @@ func (self *Runner_t) RunAny(ts time.Time, name string, fn Call, agg Aggregate, 
 	return
 }
 
+func (self *Runner_t) RunEx(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int) {
+	self.mx.Lock()
+	if self.running[name] > 0 {
+		return
+	}
+	input, queued = self.__queue(ts, name, fn, agg, packs)
+	self.mx.Unlock()
+	return
+}
+
 func (self *Runner_t) Remove(ts time.Time, name string, pack PackID) (removed int) {
 	var ok bool
 	self.mx.Lock()
@@ -131,11 +130,6 @@ func (self *Runner_t) Remove(ts time.Time, name string, pack PackID) (removed in
 			removed++
 		}
 	}
-	if temp, ok := self.queued[name]; temp == removed {
-		delete(self.queued, name)
-	} else if ok {
-		self.queued[name] -= removed
-	}
 	self.mx.Unlock()
 	return
 }
@@ -143,19 +137,20 @@ func (self *Runner_t) Remove(ts time.Time, name string, pack PackID) (removed in
 func (self *Runner_t) run() {
 	defer self.wg.Done()
 	for v := range self.queue {
-		atomic.AddInt64(&self.running, 1)
 		v.fn(v.agg, v.pack)
-		atomic.AddInt64(&self.running, -1)
+		self.mx.Lock()
+		if temp, ok := self.running[v.name]; temp == 1 {
+			delete(self.running, v.name)
+		} else if ok {
+			self.running[v.name]--
+		}
+		self.mx.Unlock()
 	}
 }
 
-func (self *Runner_t) Running() int64 {
-	return atomic.LoadInt64(&self.running)
-}
-
-func (self *Runner_t) RangeQueued(fn func(key string, value int) bool) {
+func (self *Runner_t) RangeRunning(fn func(key string, value int) bool) {
 	self.mx.Lock()
-	for k, v := range self.queued {
+	for k, v := range self.running {
 		if !fn(k, v) {
 			self.mx.Unlock()
 			return
