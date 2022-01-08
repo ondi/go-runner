@@ -11,7 +11,7 @@ import (
 	"gotest.tools/assert"
 )
 
-func DoSome(agg Aggregate, in PackID) {}
+func DoSome(agg Aggregate, in Pack) {}
 
 type MyPack_t struct {
 	In []string

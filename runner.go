@@ -11,13 +11,13 @@ import (
 	cache "github.com/ondi/go-ttl-cache"
 )
 
-type PackID interface {
+type Pack interface {
 	Len() int
-	IDString(i int) string
 }
 
 type Repack interface {
-	PackID
+	Pack
+	IDString(i int) string
 	Swap(i int, j int)
 	Resize(i int)
 }
@@ -26,13 +26,13 @@ type Aggregate interface {
 	Total(int)
 }
 
-type Call func(agg Aggregate, in PackID)
+type Call func(agg Aggregate, in Pack)
 
 type msg_t struct {
 	name string
 	fn   Call
 	agg  Aggregate
-	pack PackID
+	pack Pack
 }
 
 type Runner_t struct {
@@ -106,7 +106,7 @@ func (self *Runner_t) __queue_repack(ts time.Time, name string, fn Call, agg Agg
 }
 
 // Total() should be called before processing
-func (self *Runner_t) __queue_all(ts time.Time, name string, fn Call, agg Aggregate, packs []PackID) (input int, queued int) {
+func (self *Runner_t) __queue_all(ts time.Time, name string, fn Call, agg Aggregate, packs []Pack) (input int, queued int) {
 	var last int
 	available := self.queue_size - len(self.queue)
 	for available > 0 && last < len(packs) {
@@ -132,7 +132,7 @@ func (self *Runner_t) RunRepack(ts time.Time, name string, fn Call, agg Aggregat
 	return
 }
 
-func (self *Runner_t) RunAll(ts time.Time, name string, fn Call, agg Aggregate, packs []PackID) (input int, queued int) {
+func (self *Runner_t) RunAll(ts time.Time, name string, fn Call, agg Aggregate, packs []Pack) (input int, queued int) {
 	self.mx.Lock()
 	if self.running[name] > 0 {
 		return
@@ -142,7 +142,7 @@ func (self *Runner_t) RunAll(ts time.Time, name string, fn Call, agg Aggregate, 
 	return
 }
 
-func (self *Runner_t) Remove(ts time.Time, name string, pack PackID) (removed int) {
+func (self *Runner_t) Remove(ts time.Time, name string, pack Repack) (removed int) {
 	var ok bool
 	self.mx.Lock()
 	for i := 0; i < pack.Len(); i++ {
