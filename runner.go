@@ -32,7 +32,7 @@ type msg_t struct {
 	name string
 	fn   Call
 	agg  Aggregate
-	pack Repack
+	pack PackID
 }
 
 type Runner_t struct {
@@ -84,7 +84,7 @@ func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added in
 }
 
 // Total() should be called before processing
-func (self *Runner_t) __queue(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int) {
+func (self *Runner_t) __queue_repack(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int) {
 	var last, added int
 	available := self.queue_size - len(self.queue)
 	for available > 0 && last < len(packs) {
@@ -105,19 +105,39 @@ func (self *Runner_t) __queue(ts time.Time, name string, fn Call, agg Aggregate,
 	return
 }
 
-func (self *Runner_t) RunAny(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int) {
+// Total() should be called before processing
+func (self *Runner_t) __queue_all(ts time.Time, name string, fn Call, agg Aggregate, packs []PackID) (input int, queued int) {
+	var last int
+	available := self.queue_size - len(self.queue)
+	for available > 0 && last < len(packs) {
+		input += packs[last].Len()
+		queued += packs[last].Len()
+		available--
+		last++
+	}
+	agg.Total(queued)
+	for available = 0; available < last; available++ {
+		if packs[available].Len() > 0 {
+			self.running[name]++
+			self.queue <- msg_t{name: name, fn: fn, agg: agg, pack: packs[available]}
+		}
+	}
+	return
+}
+
+func (self *Runner_t) RunRepack(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int) {
 	self.mx.Lock()
-	input, queued = self.__queue(ts, name, fn, agg, packs)
+	input, queued = self.__queue_repack(ts, name, fn, agg, packs)
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunEx(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int) {
+func (self *Runner_t) RunAll(ts time.Time, name string, fn Call, agg Aggregate, packs []PackID) (input int, queued int) {
 	self.mx.Lock()
 	if self.running[name] > 0 {
 		return
 	}
-	input, queued = self.__queue(ts, name, fn, agg, packs)
+	input, queued = self.__queue_all(ts, name, fn, agg, packs)
 	self.mx.Unlock()
 	return
 }
