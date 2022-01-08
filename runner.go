@@ -26,13 +26,13 @@ type Aggregate interface {
 	Total(int)
 }
 
-type Call func(agg Aggregate, in interface{})
+type Call func(agg Aggregate, in PackID)
 
 type msg_t struct {
 	name string
 	fn   Call
 	agg  Aggregate
-	pack PackID
+	pack Repack
 }
 
 type Runner_t struct {
