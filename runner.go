@@ -15,9 +15,13 @@ type Pack interface {
 	Len() int
 }
 
-type Repack interface {
+type PackID interface {
 	Pack
 	IDString(i int) string
+}
+
+type Repack interface {
+	PackID
 	Swap(i int, j int)
 	Resize(i int)
 }
@@ -142,7 +146,7 @@ func (self *Runner_t) RunAll(ts time.Time, name string, fn Call, agg Aggregate, 
 	return
 }
 
-func (self *Runner_t) Remove(ts time.Time, name string, pack Repack) (removed int) {
+func (self *Runner_t) Remove(ts time.Time, name string, pack PackID) (removed int) {
 	var ok bool
 	self.mx.Lock()
 	for i := 0; i < pack.Len(); i++ {
