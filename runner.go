@@ -87,13 +87,12 @@ func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added in
 func (self *Runner_t) __queue_repack(ts time.Time, name string, fn Call, r Result, packs []Repack) (input int, queued int) {
 	var last, added int
 	available := self.queue_size - len(self.queue)
-	for available > 0 && last < len(packs) {
+	for ; available > 0 && last < len(packs); last++ {
 		input += packs[last].Len()
 		if added = self.__repack(ts, name, packs[last]); added > 0 {
 			queued += added
 			available--
 		}
-		last++
 	}
 	r.Total(queued)
 	for available = 0; available < last; available++ {
@@ -132,6 +131,7 @@ func (self *Runner_t) RunRepack(ts time.Time, name string, fn Call, r Result, pa
 func (self *Runner_t) RunAll(ts time.Time, name string, fn Call, r Result, packs []interface{}) (input int, queued int) {
 	self.mx.Lock()
 	if self.running[name] > 0 {
+		self.mx.Unlock()
 		return
 	}
 	input, queued = self.__queue_all(ts, name, fn, r, packs)
