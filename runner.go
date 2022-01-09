@@ -11,12 +11,8 @@ import (
 	cache "github.com/ondi/go-ttl-cache"
 )
 
-type Pack interface {
-	Len() int
-}
-
 type PackID interface {
-	Pack
+	Len() int
 	IDString(i int) string
 }
 
@@ -26,17 +22,17 @@ type Repack interface {
 	Resize(i int)
 }
 
-type Aggregate interface {
+type Result interface {
 	Total(int)
 }
 
-type Call func(agg Aggregate, in Pack)
+type Call func(r Result, in interface{})
 
 type msg_t struct {
 	name string
 	fn   Call
-	agg  Aggregate
-	pack Pack
+	r    Result
+	pack interface{}
 }
 
 type Runner_t struct {
@@ -88,7 +84,7 @@ func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added in
 }
 
 // Total() should be called before processing
-func (self *Runner_t) __queue_repack(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int) {
+func (self *Runner_t) __queue_repack(ts time.Time, name string, fn Call, r Result, packs []Repack) (input int, queued int) {
 	var last, added int
 	available := self.queue_size - len(self.queue)
 	for available > 0 && last < len(packs) {
@@ -99,49 +95,46 @@ func (self *Runner_t) __queue_repack(ts time.Time, name string, fn Call, agg Agg
 		}
 		last++
 	}
-	agg.Total(queued)
+	r.Total(queued)
 	for available = 0; available < last; available++ {
 		if packs[available].Len() > 0 {
 			self.running[name]++
-			self.queue <- msg_t{name: name, fn: fn, agg: agg, pack: packs[available]}
+			self.queue <- msg_t{name: name, fn: fn, r: r, pack: packs[available]}
 		}
 	}
 	return
 }
 
 // Total() should be called before processing
-func (self *Runner_t) __queue_all(ts time.Time, name string, fn Call, agg Aggregate, packs []Pack) (input int, queued int) {
-	var last int
-	available := self.queue_size - len(self.queue)
-	for available > 0 && last < len(packs) {
-		input += packs[last].Len()
-		queued += packs[last].Len()
-		available--
-		last++
+func (self *Runner_t) __queue_all(ts time.Time, name string, fn Call, r Result, packs []interface{}) (input int, queued int) {
+	input = len(packs)
+	queued = self.queue_size - len(self.queue)
+	if queued < input {
+		input = queued
+	} else {
+		queued = input
 	}
-	agg.Total(queued)
-	for available = 0; available < last; available++ {
-		if packs[available].Len() > 0 {
-			self.running[name]++
-			self.queue <- msg_t{name: name, fn: fn, agg: agg, pack: packs[available]}
-		}
+	r.Total(queued)
+	for queued = 0; queued < input; queued++ {
+		self.running[name]++
+		self.queue <- msg_t{name: name, fn: fn, r: r, pack: packs[queued]}
 	}
 	return
 }
 
-func (self *Runner_t) RunRepack(ts time.Time, name string, fn Call, agg Aggregate, packs []Repack) (input int, queued int) {
+func (self *Runner_t) RunRepack(ts time.Time, name string, fn Call, r Result, packs []Repack) (input int, queued int) {
 	self.mx.Lock()
-	input, queued = self.__queue_repack(ts, name, fn, agg, packs)
+	input, queued = self.__queue_repack(ts, name, fn, r, packs)
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunAll(ts time.Time, name string, fn Call, agg Aggregate, packs []Pack) (input int, queued int) {
+func (self *Runner_t) RunAll(ts time.Time, name string, fn Call, r Result, packs []interface{}) (input int, queued int) {
 	self.mx.Lock()
 	if self.running[name] > 0 {
 		return
 	}
-	input, queued = self.__queue_all(ts, name, fn, agg, packs)
+	input, queued = self.__queue_all(ts, name, fn, r, packs)
 	self.mx.Unlock()
 	return
 }
@@ -161,7 +154,7 @@ func (self *Runner_t) Remove(ts time.Time, name string, pack PackID) (removed in
 func (self *Runner_t) run() {
 	defer self.wg.Done()
 	for v := range self.queue {
-		v.fn(v.agg, v.pack)
+		v.fn(v.r, v.pack)
 		self.mx.Lock()
 		if temp, ok := self.running[v.name]; temp == 1 {
 			delete(self.running, v.name)
