@@ -64,10 +64,9 @@ func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration)
 }
 
 func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added int) {
-	var ok bool
 	last := pack.Len()
 	for added < last {
-		if _, ok = self.cx.Create(
+		if _, ok := self.cx.Create(
 			ts,
 			filter_key{name: name, id: pack.IDString(added)},
 			func() interface{} { return nil },
@@ -88,16 +87,18 @@ func (self *Runner_t) __queue(ts time.Time, name string, fn Call, res Result, pa
 	var last, added int
 	available := self.queue_size - len(self.queue)
 	for available > 0 && last < len(packs) {
-		input += packs[last].Len()
-		if added = self.__repack(ts, name, packs[last]); added > 0 {
-			queued += added
+		if added = packs[last].Len(); added < 0 {
+			available--
+		} else if added = self.__repack(ts, name, packs[last]); added > 0 {
 			available--
 		}
+		input += added
+		queued += added
 		last++
 	}
 	res.Total(queued)
 	for available = 0; available < last; available++ {
-		if packs[available].Len() > 0 {
+		if packs[available].Len() != 0 {
 			self.running[name]++
 			self.queue <- msg_t{name: name, fn: fn, res: res, pack: packs[available]}
 		}
