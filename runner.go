@@ -87,12 +87,13 @@ func (self *Runner_t) __queue(ts time.Time, name string, fn Call, res Result, pa
 	var last, added int
 	available := self.queue_size - len(self.queue)
 	for available > 0 && last < len(packs) {
-		if added = packs[last].Len(); added < 0 {
+		added = packs[last].Len()
+		input += added
+		if added < 0 {
 			available--
 		} else if added = self.__repack(ts, name, packs[last]); added > 0 {
 			available--
 		}
-		input += added
 		queued += added
 		last++
 	}
