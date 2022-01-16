@@ -12,18 +12,18 @@ import (
 )
 
 type PackID interface {
-	Len() int
-	IDString(i int) string
+	PackLen() int
+	PackIDString(i int) string
 }
 
 type Repack interface {
 	PackID
-	Swap(i int, j int)
-	Resize(i int)
+	PackSwap(i int, j int)
+	PackResize(i int)
 }
 
 type Result interface {
-	Total(int)
+	PackTotal(int)
 }
 
 type Call func(res Result, in PackID)
@@ -64,30 +64,30 @@ func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration)
 }
 
 func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added int) {
-	last := pack.Len()
+	last := pack.PackLen()
 	for added < last {
 		if _, ok := self.cx.Create(
 			ts,
-			filter_key{name: name, id: pack.IDString(added)},
+			filter_key{name: name, id: pack.PackIDString(added)},
 			func() interface{} { return nil },
 			func(prev interface{}) interface{} { return prev },
 		); ok {
 			added++
 		} else {
 			last--
-			pack.Swap(added, last)
+			pack.PackSwap(added, last)
 		}
 	}
-	pack.Resize(added)
+	pack.PackResize(added)
 	return
 }
 
-// Total() should be called before processing
+// PackTotal() should be called before processing
 func (self *Runner_t) __queue(ts time.Time, name string, fn Call, res Result, packs []Repack) (input int, queued int) {
 	var last, added int
 	available := self.queue_size - len(self.queue)
 	for available > 0 && last < len(packs) {
-		added = packs[last].Len()
+		added = packs[last].PackLen()
 		input += added
 		if added < 0 {
 			available--
@@ -97,9 +97,9 @@ func (self *Runner_t) __queue(ts time.Time, name string, fn Call, res Result, pa
 		queued += added
 		last++
 	}
-	res.Total(queued)
+	res.PackTotal(queued)
 	for available = 0; available < last; available++ {
-		if packs[available].Len() != 0 {
+		if packs[available].PackLen() != 0 {
 			self.running[name]++
 			self.queue <- msg_t{name: name, fn: fn, res: res, pack: packs[available]}
 		}
@@ -128,8 +128,8 @@ func (self *Runner_t) RunAnyEx(ts time.Time, name string, fn Call, res Result, p
 func (self *Runner_t) Remove(ts time.Time, name string, pack PackID) (removed int) {
 	var ok bool
 	self.mx.Lock()
-	for i := 0; i < pack.Len(); i++ {
-		if _, ok = self.cx.Remove(ts, filter_key{name: name, id: pack.IDString(i)}); ok {
+	for i := 0; i < pack.PackLen(); i++ {
+		if _, ok = self.cx.Remove(ts, filter_key{name: name, id: pack.PackIDString(i)}); ok {
 			removed++
 		}
 	}
