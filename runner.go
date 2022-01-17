@@ -82,7 +82,7 @@ func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added in
 	return
 }
 
-// PackTotal() should be called before processing
+// Total() should be called before processing
 func (self *Runner_t) __queue(ts time.Time, name string, fn Call, res Result, packs []Repack) (input int, queued int) {
 	var last, added int
 	available := self.queue_size - len(self.queue)
