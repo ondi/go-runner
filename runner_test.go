@@ -17,19 +17,19 @@ type MyPack_t struct {
 	In []string
 }
 
-func (self *MyPack_t) PackLen() int {
+func (self *MyPack_t) Len() int {
 	return len(self.In)
 }
 
-func (self *MyPack_t) PackIDString(i int) string {
+func (self *MyPack_t) IDString(i int) string {
 	return self.In[i]
 }
 
-func (self *MyPack_t) PackSwap(i int, j int) {
+func (self *MyPack_t) Swap(i int, j int) {
 	self.In[i], self.In[j] = self.In[j], self.In[i]
 }
 
-func (self *MyPack_t) PackResize(i int) {
+func (self *MyPack_t) Resize(i int) {
 	self.In = self.In[:i]
 }
 
@@ -37,7 +37,7 @@ type Result_t struct {
 	total int
 }
 
-func (self *Result_t) PackTotal(total int) {
+func (self *Result_t) Total(total int) {
 	self.total = total
 }
 
