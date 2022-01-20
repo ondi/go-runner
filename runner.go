@@ -151,6 +151,13 @@ func (self *Runner_t) run() {
 	}
 }
 
+func (self *Runner_t) Running(name string) (res int) {
+	self.mx.Lock()
+	res = self.running[name]
+	self.mx.Unlock()
+	return
+}
+
 func (self *Runner_t) RangeRunning(fn func(key string, value int) bool) {
 	self.mx.Lock()
 	for k, v := range self.running {
