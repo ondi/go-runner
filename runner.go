@@ -115,11 +115,9 @@ func (self *Runner_t) RunAny(ts time.Time, name string, fn Call, res Result, pac
 
 func (self *Runner_t) RunAnyEx(count int, ts time.Time, name string, fn Call, res Result, packs []Repack) (queued int) {
 	self.mx.Lock()
-	if self.running[name] > count {
-		self.mx.Unlock()
-		return
+	if self.running[name] < count {
+		queued = self.__queue(ts, name, fn, res, packs)
 	}
-	queued = self.__queue(ts, name, fn, res, packs)
 	self.mx.Unlock()
 	return
 }
