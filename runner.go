@@ -123,10 +123,9 @@ func (self *Runner_t) RunAnyEx(count int, ts time.Time, name string, fn Call, re
 }
 
 func (self *Runner_t) Remove(ts time.Time, name string, pack PackID) (removed int) {
-	var ok bool
 	self.mx.Lock()
 	for i := 0; i < pack.Len(); i++ {
-		if _, ok = self.cx.Remove(ts, filter_key{name: name, id: pack.IDString(i)}); ok {
+		if _, ok := self.cx.Remove(ts, filter_key{name: name, id: pack.IDString(i)}); ok {
 			removed++
 		}
 	}
@@ -139,20 +138,13 @@ func (self *Runner_t) run() {
 	for v := range self.queue {
 		v.fn(v.res, v.pack)
 		self.mx.Lock()
-		if temp, ok := self.running[v.name]; temp == 1 {
+		if temp := self.running[v.name]; temp == 1 {
 			delete(self.running, v.name)
-		} else if ok {
+		} else if temp > 1 {
 			self.running[v.name]--
 		}
 		self.mx.Unlock()
 	}
-}
-
-func (self *Runner_t) Running(name string) (res int) {
-	self.mx.Lock()
-	res = self.running[name]
-	self.mx.Unlock()
-	return
 }
 
 func (self *Runner_t) RangeRunning(fn func(key string, value int) bool) {
