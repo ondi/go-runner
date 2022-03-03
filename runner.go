@@ -63,12 +63,8 @@ func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration)
 	return self
 }
 
-func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added int) {
-	last := pack.Len()
-	if last < 0 {
-		return last
-	}
-	for added < last {
+func (self *Runner_t) __repack(ts time.Time, name string, pack Repack, length int) (added int) {
+	for added < length {
 		if _, ok := self.cx.Create(
 			ts,
 			filter_key{name: name, id: pack.IDString(added)},
@@ -77,8 +73,8 @@ func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added in
 		); ok {
 			added++
 		} else {
-			last--
-			pack.Swap(added, last)
+			length--
+			pack.Swap(added, length)
 		}
 	}
 	pack.Resize(added)
@@ -89,12 +85,16 @@ func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added in
 func (self *Runner_t) __queue(ts time.Time, name string, fn Call, res Result, packs []Repack) (queued int) {
 	var last, added int
 	available := self.queue_size - len(self.queue)
-	for available > 0 && last < len(packs) {
-		if added = self.__repack(ts, name, packs[last]); added != 0 {
+	for ; available > 0 && last < len(packs); last++ {
+		if added = packs[last].Len(); added > 0 {
+			if added = self.__repack(ts, name, packs[last], added); added > 0 {
+				available--
+				queued += added
+			}
+		} else if added < 0 {
 			available--
+			queued += -added
 		}
-		queued += added
-		last++
 	}
 	res.Total(queued)
 	for available = 0; available < last; available++ {
@@ -140,7 +140,7 @@ func (self *Runner_t) run() {
 		self.mx.Lock()
 		if temp := self.running[v.name]; temp == 1 {
 			delete(self.running, v.name)
-		} else if temp > 1 {
+		} else if temp != 0 {
 			self.running[v.name]--
 		}
 		self.mx.Unlock()
