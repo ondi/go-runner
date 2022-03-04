@@ -124,7 +124,7 @@ func (self *Runner_t) RunAnyEx(count int, ts time.Time, name string, fn Call, re
 
 func (self *Runner_t) Remove(ts time.Time, name string, pack PackID) (removed int) {
 	self.mx.Lock()
-	for i := 0; i < pack.Len(); i++ {
+	for i := pack.Len() - 1; i > -1; i-- {
 		if _, ok := self.cx.Remove(ts, filter_key{name: name, id: pack.IDString(i)}); ok {
 			removed++
 		}
