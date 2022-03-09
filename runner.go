@@ -63,7 +63,11 @@ func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration)
 	return self
 }
 
-func (self *Runner_t) __repack(ts time.Time, name string, pack Repack, length int) (added int) {
+func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added int) {
+	length := pack.Len()
+	if length < 0 {
+		return -length
+	}
 	for added < length {
 		if _, ok := self.cx.Create(
 			ts,
@@ -86,14 +90,9 @@ func (self *Runner_t) __queue(ts time.Time, name string, fn Call, res Result, pa
 	var last, added int
 	available := self.queue_size - len(self.queue)
 	for ; available > 0 && last < len(packs); last++ {
-		if added = packs[last].Len(); added > 0 {
-			if added = self.__repack(ts, name, packs[last], added); added > 0 {
-				available--
-				queued += added
-			}
-		} else if added < 0 {
+		if added = self.__repack(ts, name, packs[last]); added != 0 {
 			available--
-			queued += -added
+			queued += added
 		}
 	}
 	res.Total(queued)
