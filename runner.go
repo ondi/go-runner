@@ -19,7 +19,7 @@ type PackID interface {
 type Repack interface {
 	PackID
 	Swap(i int, j int)
-	Resize(i int) int
+	Resize(i int)
 }
 
 type Result interface {
@@ -63,8 +63,9 @@ func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration)
 	return self
 }
 
-func (self *Runner_t) __repack(ts time.Time, name string, pack Repack, pack_len int) (added int) {
-	for added < pack_len {
+func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added int) {
+	length := pack.Len()
+	for added < length {
 		if _, ok := self.cx.Create(
 			ts,
 			filter_key{name: name, id: pack.IDString(added)},
@@ -73,11 +74,12 @@ func (self *Runner_t) __repack(ts time.Time, name string, pack Repack, pack_len 
 		); ok {
 			added++
 		} else {
-			pack_len--
-			pack.Swap(added, pack_len)
+			length--
+			pack.Swap(added, length)
 		}
 	}
-	return pack.Resize(added)
+	pack.Resize(added)
+	return pack.Len()
 }
 
 // Total() should be called before processing
@@ -85,7 +87,7 @@ func (self *Runner_t) __queue(ts time.Time, name string, fn Call, res Result, pa
 	var last, added int
 	available := self.queue_size - len(self.queue)
 	for ; available > 0 && last < len(packs); last++ {
-		if added = self.__repack(ts, name, packs[last], packs[last].Len()); added != 0 {
+		if added = self.__repack(ts, name, packs[last]); added != 0 {
 			available--
 			queued += added
 		}

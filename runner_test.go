@@ -29,9 +29,8 @@ func (self *MyPack_t) Swap(i int, j int) {
 	self.In[i], self.In[j] = self.In[j], self.In[i]
 }
 
-func (self *MyPack_t) Resize(i int) int {
+func (self *MyPack_t) Resize(i int) {
 	self.In = self.In[:i]
-	return i
 }
 
 type Result_t struct {
