@@ -35,6 +35,11 @@ type msg_t struct {
 	pack Repack
 }
 
+type key_t struct {
+	name string
+	id   string
+}
+
 type Runner_t struct {
 	mx         sync.Mutex
 	cx         *cache.Cache_t
@@ -42,11 +47,6 @@ type Runner_t struct {
 	queue_size int
 	running    map[string]int
 	wg         sync.WaitGroup
-}
-
-type filter_key struct {
-	name string
-	id   string
 }
 
 func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration) *Runner_t {
@@ -64,14 +64,16 @@ func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration)
 }
 
 func (self *Runner_t) __repack(ts time.Time, name string, pack Repack) (added int) {
+	var ok bool
 	length := pack.Len()
 	for added < length {
-		if _, ok := self.cx.Create(
+		_, ok = self.cx.Create(
 			ts,
-			filter_key{name: name, id: pack.IDString(added)},
+			key_t{name: name, id: pack.IDString(added)},
 			func() interface{} { return nil },
 			func(prev interface{}) interface{} { return prev },
-		); ok {
+		)
+		if ok {
 			added++
 		} else {
 			length--
@@ -121,7 +123,7 @@ func (self *Runner_t) RunAnyEx(count int, ts time.Time, name string, fn Call, re
 func (self *Runner_t) Remove(ts time.Time, name string, pack PackID) (removed int) {
 	self.mx.Lock()
 	for i := pack.Len() - 1; i > -1; i-- {
-		if _, ok := self.cx.Remove(ts, filter_key{name: name, id: pack.IDString(i)}); ok {
+		if _, ok := self.cx.Remove(ts, key_t{name: name, id: pack.IDString(i)}); ok {
 			removed++
 		}
 	}
