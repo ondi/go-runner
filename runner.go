@@ -28,16 +28,16 @@ type Result interface {
 
 type Call func(out Result, in PackID)
 
-type Name_t struct {
+type Entry_t struct {
 	Service  string
 	Function string
 }
 
 type msg_t struct {
-	name Name_t
-	fn   Call
-	in   Repack
-	out  Result
+	entry Entry_t
+	fn    Call
+	in    Repack
+	out   Result
 }
 
 type filter_key_t struct {
@@ -51,7 +51,7 @@ type Runner_t struct {
 	queue      chan msg_t
 	queue_size int
 	services   map[string]int
-	functions  map[Name_t]int
+	functions  map[Entry_t]int
 	wg         sync.WaitGroup
 }
 
@@ -59,7 +59,7 @@ func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration)
 	self := &Runner_t{
 		queue:      make(chan msg_t, queue_size),
 		services:   map[string]int{},
-		functions:  map[Name_t]int{},
+		functions:  map[Entry_t]int{},
 		queue_size: queue_size,
 	}
 	self.cx = cache.New(filter_size, filter_ttl, cache.Drop)
@@ -92,11 +92,11 @@ func (self *Runner_t) __repack(ts time.Time, service string, in Repack) (added i
 }
 
 // Total() should be called before start
-func (self *Runner_t) __queue(ts time.Time, name Name_t, fn Call, out Result, in []Repack) (queued int) {
+func (self *Runner_t) __queue(ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (queued int) {
 	var last, added int
 	available := self.queue_size - len(self.queue)
 	for ; available > 0 && last < len(in); last++ {
-		if added = self.__repack(ts, name.Service, in[last]); added != 0 {
+		if added = self.__repack(ts, entry.Service, in[last]); added != 0 {
 			available--
 			queued += added
 		}
@@ -104,25 +104,34 @@ func (self *Runner_t) __queue(ts time.Time, name Name_t, fn Call, out Result, in
 	out.Total(queued)
 	for available = 0; available < last; available++ {
 		if in[available].Len() != 0 {
-			self.services[name.Service]++
-			self.functions[name]++
-			self.queue <- msg_t{name: name, fn: fn, in: in[available], out: out}
+			self.services[entry.Service]++
+			self.functions[entry]++
+			self.queue <- msg_t{entry: entry, fn: fn, in: in[available], out: out}
 		}
 	}
 	return
 }
 
-func (self *Runner_t) RunAny(ts time.Time, name Name_t, fn Call, out Result, in []Repack) (queued int) {
+func (self *Runner_t) RunAny(ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (queued int) {
 	self.mx.Lock()
-	queued = self.__queue(ts, name, fn, out, in)
+	queued = self.__queue(ts, entry, fn, out, in)
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunAnyEx(count int, ts time.Time, name Name_t, fn Call, out Result, in []Repack) (queued int) {
+func (self *Runner_t) RunAnySrv(count int, ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (queued int) {
 	self.mx.Lock()
-	if self.services[name.Service] < count {
-		queued = self.__queue(ts, name, fn, out, in)
+	if self.services[entry.Service] < count {
+		queued = self.__queue(ts, entry, fn, out, in)
+	}
+	self.mx.Unlock()
+	return
+}
+
+func (self *Runner_t) RunAnyFn(count int, ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (queued int) {
+	self.mx.Lock()
+	if self.functions[entry] < count {
+		queued = self.__queue(ts, entry, fn, out, in)
 	}
 	self.mx.Unlock()
 	return
@@ -144,21 +153,21 @@ func (self *Runner_t) run() {
 	for v := range self.queue {
 		v.fn(v.out, v.in)
 		self.mx.Lock()
-		if temp := self.services[v.name.Service]; temp == 1 {
-			delete(self.services, v.name.Service)
+		if temp := self.services[v.entry.Service]; temp == 1 {
+			delete(self.services, v.entry.Service)
 		} else if temp != 0 {
-			self.services[v.name.Service]--
+			self.services[v.entry.Service]--
 		}
-		if temp := self.functions[v.name]; temp == 1 {
-			delete(self.functions, v.name)
+		if temp := self.functions[v.entry]; temp == 1 {
+			delete(self.functions, v.entry)
 		} else if temp != 0 {
-			self.functions[v.name]--
+			self.functions[v.entry]--
 		}
 		self.mx.Unlock()
 	}
 }
 
-func (self *Runner_t) RangeRunning(fn func(key Name_t, value int) bool) {
+func (self *Runner_t) RangeRunning(fn func(key Entry_t, value int) bool) {
 	self.mx.Lock()
 	for k, v := range self.functions {
 		if !fn(k, v) {

@@ -41,7 +41,7 @@ func (self *Result_t) Total(total int) {
 	self.total = total
 }
 
-var name = Name_t{Service: "default", Function: "dosome"}
+var name = Entry_t{Service: "default", Function: "dosome"}
 
 func Test_add01(t *testing.T) {
 	r := New(0, 1, 100, 15*time.Second)
