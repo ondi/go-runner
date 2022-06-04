@@ -41,11 +41,13 @@ func (self *Result_t) Total(total int) {
 	self.total = total
 }
 
+var name = Name_t{Service: "default", Function: "dosome"}
+
 func Test_add01(t *testing.T) {
 	r := New(0, 1, 100, 15*time.Second)
 	ts := time.Now()
 
-	queued := r.RunAny(ts, "default", "dosome", DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}})
+	queued := r.RunAny(ts, name, DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}})
 	assert.Equal(t, queued, 1)
 	assert.Equal(t, r.SizeFilter(ts), 1)
 	assert.Equal(t, r.SizeQueue(), 1)
@@ -55,7 +57,7 @@ func Test_add02(t *testing.T) {
 	r := New(0, 2, 100, 15*time.Second)
 	ts := time.Now()
 
-	queued := r.RunAny(ts, "default", "dosome", DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"2"}}})
+	queued := r.RunAny(ts, name, DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"2"}}})
 	assert.Equal(t, queued, 2)
 	assert.Equal(t, r.SizeFilter(ts), 2)
 	assert.Equal(t, r.SizeQueue(), 2)
@@ -65,7 +67,7 @@ func Test_add03(t *testing.T) {
 	r := New(0, 2, 100, 15*time.Second)
 	ts := time.Now()
 
-	queued := r.RunAny(ts, "default", "dosome", DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"2"}}, &MyPack_t{In: []string{"3"}}})
+	queued := r.RunAny(ts, name, DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"2"}}, &MyPack_t{In: []string{"3"}}})
 	assert.Equal(t, queued, 2)
 	assert.Equal(t, r.SizeFilter(ts), 2)
 	assert.Equal(t, r.SizeQueue(), 2)
@@ -75,17 +77,17 @@ func Test_add04(t *testing.T) {
 	r := New(0, 2, 100, 15*time.Second)
 	ts := time.Now()
 
-	queued := r.RunAny(ts, "default", "dosome", DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}})
+	queued := r.RunAny(ts, name, DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}})
 	assert.Equal(t, queued, 1)
 	assert.Equal(t, r.SizeFilter(ts), 1)
 	assert.Equal(t, r.SizeQueue(), 1)
 
-	queued = r.RunAny(ts, "default", "dosome", DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"2"}}, &MyPack_t{In: []string{"3"}}})
+	queued = r.RunAny(ts, name, DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"2"}}, &MyPack_t{In: []string{"3"}}})
 	assert.Equal(t, queued, 1)
 	assert.Equal(t, r.SizeFilter(ts), 2)
 	assert.Equal(t, r.SizeQueue(), 2)
 
-	queued = r.RunAny(ts, "default", "dosome", DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"2"}}, &MyPack_t{In: []string{"3"}}})
+	queued = r.RunAny(ts, name, DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"2"}}, &MyPack_t{In: []string{"3"}}})
 	assert.Equal(t, queued, 0)
 	assert.Equal(t, r.SizeFilter(ts), 2)
 	assert.Equal(t, r.SizeQueue(), 2)
@@ -95,12 +97,12 @@ func Test_add05(t *testing.T) {
 	r := New(0, 2, 100, 15*time.Second)
 	ts := time.Now()
 
-	queued := r.RunAny(ts, "default", "dosome", DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}})
+	queued := r.RunAny(ts, name, DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}})
 	assert.Equal(t, queued, 1)
 	assert.Equal(t, r.SizeFilter(ts), 1)
 	assert.Equal(t, r.SizeQueue(), 1)
 
-	queued = r.RunAny(ts, "default", "dosome", DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"2"}}, &MyPack_t{In: []string{"3"}}})
+	queued = r.RunAny(ts, name, DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"2"}}, &MyPack_t{In: []string{"3"}}})
 	assert.Equal(t, queued, 1)
 	assert.Equal(t, r.SizeFilter(ts), 2)
 	assert.Equal(t, r.SizeQueue(), 2)
@@ -122,7 +124,7 @@ func Test_add06(t *testing.T) {
 	r := New(0, 2, 100, 5*time.Second)
 	ts := time.Now()
 
-	queued := r.RunAny(ts, "default", "dosome", DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"2"}}})
+	queued := r.RunAny(ts, name, DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"2"}}})
 	assert.Equal(t, queued, 2)
 	ts = ts.Add(-10 * time.Second)
 	assert.Equal(t, r.SizeFilter(ts), 2)
@@ -133,7 +135,7 @@ func Test_add07(t *testing.T) {
 	r := New(0, 2, 100, 5*time.Second)
 	ts := time.Now()
 
-	queued := r.RunAny(ts, "default", "dosome", DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"2"}}})
+	queued := r.RunAny(ts, name, DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"2"}}})
 	assert.Equal(t, queued, 2)
 	ts = ts.Add(10 * time.Second)
 	assert.Equal(t, r.SizeFilter(ts), 0)
@@ -144,7 +146,7 @@ func Test_add08(t *testing.T) {
 	r := New(0, 2, 100, 5*time.Second)
 	ts := time.Now()
 
-	queued := r.RunAny(ts, "default", "dosome", DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"2"}}})
+	queued := r.RunAny(ts, name, DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"2"}}})
 	assert.Equal(t, queued, 2)
 	assert.Equal(t, r.SizeFilter(ts), 2)
 	assert.Equal(t, r.SizeQueue(), 2)
@@ -166,7 +168,7 @@ func Test_add09(t *testing.T) {
 	r := New(0, 2, 100, 5*time.Second)
 	ts := time.Now()
 
-	queued := r.RunAny(ts, "default", "dosome", DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"2"}}})
+	queued := r.RunAny(ts, name, DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"2"}}})
 	assert.Equal(t, queued, 2)
 	assert.Equal(t, r.SizeFilter(ts), 2)
 	assert.Equal(t, r.SizeQueue(), 2)
@@ -188,6 +190,6 @@ func Test_add10(t *testing.T) {
 	r := New(0, 2, 100, 5*time.Second)
 	ts := time.Now()
 
-	queued := r.RunAny(ts, "default", "dosome", DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"2"}}})
+	queued := r.RunAny(ts, name, DoSome, &Result_t{}, []Repack{&MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"1"}}, &MyPack_t{In: []string{"2"}}})
 	assert.Equal(t, queued, 2)
 }

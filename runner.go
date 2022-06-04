@@ -28,15 +28,19 @@ type Result interface {
 
 type Call func(out Result, in PackID)
 
-type msg_t struct {
-	service  string
-	function string
-	fn       Call
-	in       Repack
-	out      Result
+type Name_t struct {
+	Service  string
+	Function string
 }
 
-type key_t struct {
+type msg_t struct {
+	name Name_t
+	fn   Call
+	in   Repack
+	out  Result
+}
+
+type filter_key_t struct {
 	service string
 	id      string
 }
@@ -47,7 +51,7 @@ type Runner_t struct {
 	queue      chan msg_t
 	queue_size int
 	services   map[string]int
-	functions  map[string]int
+	functions  map[Name_t]int
 	wg         sync.WaitGroup
 }
 
@@ -55,7 +59,7 @@ func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration)
 	self := &Runner_t{
 		queue:      make(chan msg_t, queue_size),
 		services:   map[string]int{},
-		functions:  map[string]int{},
+		functions:  map[Name_t]int{},
 		queue_size: queue_size,
 	}
 	self.cx = cache.New(filter_size, filter_ttl, cache.Drop)
@@ -72,7 +76,7 @@ func (self *Runner_t) __repack(ts time.Time, service string, in Repack) (added i
 	for added < length {
 		_, ok = self.cx.Create(
 			ts,
-			key_t{service: service, id: in.IDString(added)},
+			filter_key_t{service: service, id: in.IDString(added)},
 			func() interface{} { return nil },
 			func(prev interface{}) interface{} { return prev },
 		)
@@ -88,11 +92,11 @@ func (self *Runner_t) __repack(ts time.Time, service string, in Repack) (added i
 }
 
 // Total() should be called before start
-func (self *Runner_t) __queue(ts time.Time, service string, function string, fn Call, out Result, in []Repack) (queued int) {
+func (self *Runner_t) __queue(ts time.Time, name Name_t, fn Call, out Result, in []Repack) (queued int) {
 	var last, added int
 	available := self.queue_size - len(self.queue)
 	for ; available > 0 && last < len(in); last++ {
-		if added = self.__repack(ts, service, in[last]); added != 0 {
+		if added = self.__repack(ts, name.Service, in[last]); added != 0 {
 			available--
 			queued += added
 		}
@@ -100,25 +104,25 @@ func (self *Runner_t) __queue(ts time.Time, service string, function string, fn 
 	out.Total(queued)
 	for available = 0; available < last; available++ {
 		if in[available].Len() != 0 {
-			self.services[service]++
-			self.functions[service+"::"+function]++
-			self.queue <- msg_t{service: service, function: function, fn: fn, in: in[available], out: out}
+			self.services[name.Service]++
+			self.functions[name]++
+			self.queue <- msg_t{name: name, fn: fn, in: in[available], out: out}
 		}
 	}
 	return
 }
 
-func (self *Runner_t) RunAny(ts time.Time, service string, function string, fn Call, out Result, in []Repack) (queued int) {
+func (self *Runner_t) RunAny(ts time.Time, name Name_t, fn Call, out Result, in []Repack) (queued int) {
 	self.mx.Lock()
-	queued = self.__queue(ts, service, function, fn, out, in)
+	queued = self.__queue(ts, name, fn, out, in)
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunAnyEx(count int, ts time.Time, service string, function string, fn Call, out Result, in []Repack) (queued int) {
+func (self *Runner_t) RunAnyEx(count int, ts time.Time, name Name_t, fn Call, out Result, in []Repack) (queued int) {
 	self.mx.Lock()
-	if self.services[service] < count {
-		queued = self.__queue(ts, service, function, fn, out, in)
+	if self.services[name.Service] < count {
+		queued = self.__queue(ts, name, fn, out, in)
 	}
 	self.mx.Unlock()
 	return
@@ -127,7 +131,7 @@ func (self *Runner_t) RunAnyEx(count int, ts time.Time, service string, function
 func (self *Runner_t) Remove(ts time.Time, service string, pack PackID) (removed int) {
 	self.mx.Lock()
 	for i := pack.Len() - 1; i > -1; i-- {
-		if _, ok := self.cx.Remove(ts, key_t{service: service, id: pack.IDString(i)}); ok {
+		if _, ok := self.cx.Remove(ts, filter_key_t{service: service, id: pack.IDString(i)}); ok {
 			removed++
 		}
 	}
@@ -140,22 +144,21 @@ func (self *Runner_t) run() {
 	for v := range self.queue {
 		v.fn(v.out, v.in)
 		self.mx.Lock()
-		if temp := self.services[v.service]; temp == 1 {
-			delete(self.services, v.service)
+		if temp := self.services[v.name.Service]; temp == 1 {
+			delete(self.services, v.name.Service)
 		} else if temp != 0 {
-			self.services[v.service]--
+			self.services[v.name.Service]--
 		}
-		function := v.service + "::" + v.function
-		if temp := self.functions[function]; temp == 1 {
-			delete(self.functions, function)
+		if temp := self.functions[v.name]; temp == 1 {
+			delete(self.functions, v.name)
 		} else if temp != 0 {
-			self.functions[function]--
+			self.functions[v.name]--
 		}
 		self.mx.Unlock()
 	}
 }
 
-func (self *Runner_t) RangeRunning(fn func(key string, value int) bool) {
+func (self *Runner_t) RangeRunning(fn func(key Name_t, value int) bool) {
 	self.mx.Lock()
 	for k, v := range self.functions {
 		if !fn(k, v) {
