@@ -119,7 +119,7 @@ func (self *Runner_t) RunAny(ts time.Time, entry Entry_t, fn Call, out Result, i
 	return
 }
 
-func (self *Runner_t) RunAnySrv(count int, ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (queued int) {
+func (self *Runner_t) RunAnySv(count int, ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (queued int) {
 	self.mx.Lock()
 	if self.services[entry.Service] < count {
 		queued = self.__queue(ts, entry, fn, out, in)
@@ -167,7 +167,18 @@ func (self *Runner_t) run() {
 	}
 }
 
-func (self *Runner_t) RangeRunning(fn func(key Entry_t, value int) bool) {
+func (self *Runner_t) RangeSv(fn func(key string, value int) bool) {
+	self.mx.Lock()
+	for k, v := range self.services {
+		if !fn(k, v) {
+			self.mx.Unlock()
+			return
+		}
+	}
+	self.mx.Unlock()
+}
+
+func (self *Runner_t) RangeFn(fn func(key Entry_t, value int) bool) {
 	self.mx.Lock()
 	for k, v := range self.functions {
 		if !fn(k, v) {
