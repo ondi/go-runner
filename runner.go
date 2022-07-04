@@ -40,14 +40,14 @@ type msg_t struct {
 	out   Result
 }
 
-type filter_key_t struct {
-	service string
-	id      string
+type FilterKey_t struct {
+	Service string
+	Id      string
 }
 
 type Runner_t struct {
 	mx         sync.Mutex
-	cx         *cache.Cache_t[filter_key_t, struct{}]
+	cx         *cache.Cache_t[FilterKey_t, struct{}]
 	queue      chan msg_t
 	queue_size int
 	services   map[string]int
@@ -62,7 +62,7 @@ func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration)
 		functions:  map[Entry_t]int{},
 		queue_size: queue_size,
 	}
-	self.cx = cache.New(filter_size, filter_ttl, cache.Drop[filter_key_t, struct{}])
+	self.cx = cache.New(filter_size, filter_ttl, cache.Drop[FilterKey_t, struct{}])
 	for i := 0; i < threads; i++ {
 		self.wg.Add(1)
 		go self.run()
@@ -76,7 +76,7 @@ func (self *Runner_t) __repack(ts time.Time, service string, in Repack) (added i
 	for added < length {
 		_, ok = self.cx.Create(
 			ts,
-			filter_key_t{service: service, id: in.IDString(added)},
+			FilterKey_t{Service: service, Id: in.IDString(added)},
 			func() struct{} { return struct{}{} },
 			func(*struct{}) {},
 		)
@@ -140,7 +140,7 @@ func (self *Runner_t) RunAnyFn(count int, ts time.Time, entry Entry_t, fn Call, 
 func (self *Runner_t) Remove(ts time.Time, service string, pack PackID) (removed int) {
 	self.mx.Lock()
 	for i := pack.Len() - 1; i > -1; i-- {
-		if _, ok := self.cx.Remove(ts, filter_key_t{service: service, id: pack.IDString(i)}); ok {
+		if _, ok := self.cx.Remove(ts, FilterKey_t{Service: service, Id: pack.IDString(i)}); ok {
 			removed++
 		}
 	}
@@ -189,7 +189,7 @@ func (self *Runner_t) RangeFn(fn func(key Entry_t, value int) bool) {
 	self.mx.Unlock()
 }
 
-func (self *Runner_t) RangeFilter(ts time.Time, fn func(key filter_key_t, value struct{}) bool) {
+func (self *Runner_t) RangeFilter(ts time.Time, fn func(key FilterKey_t, value struct{}) bool) {
 	self.mx.Lock()
 	self.cx.Range(ts, fn)
 	self.mx.Unlock()
