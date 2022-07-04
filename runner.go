@@ -47,7 +47,7 @@ type filter_key_t struct {
 
 type Runner_t struct {
 	mx         sync.Mutex
-	cx         *cache.Cache_t
+	cx         *cache.Cache_t[filter_key_t, struct{}]
 	queue      chan msg_t
 	queue_size int
 	services   map[string]int
@@ -62,7 +62,7 @@ func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration)
 		functions:  map[Entry_t]int{},
 		queue_size: queue_size,
 	}
-	self.cx = cache.New(filter_size, filter_ttl, cache.Drop)
+	self.cx = cache.New(filter_size, filter_ttl, cache.Drop[filter_key_t, struct{}])
 	for i := 0; i < threads; i++ {
 		self.wg.Add(1)
 		go self.run()
@@ -77,8 +77,8 @@ func (self *Runner_t) __repack(ts time.Time, service string, in Repack) (added i
 		_, ok = self.cx.Create(
 			ts,
 			filter_key_t{service: service, id: in.IDString(added)},
-			func() interface{} { return nil },
-			func(prev interface{}) interface{} { return prev },
+			func() struct{} { return struct{}{} },
+			func(*struct{}) {},
 		)
 		if ok {
 			added++
@@ -189,7 +189,7 @@ func (self *Runner_t) RangeFn(fn func(key Entry_t, value int) bool) {
 	self.mx.Unlock()
 }
 
-func (self *Runner_t) RangeFilter(ts time.Time, fn func(key interface{}, value interface{}) bool) {
+func (self *Runner_t) RangeFilter(ts time.Time, fn func(key filter_key_t, value struct{}) bool) {
 	self.mx.Lock()
 	self.cx.Range(ts, fn)
 	self.mx.Unlock()
