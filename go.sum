@@ -1,9 +1,9 @@
 github.com/google/go-cmp v0.5.6 h1:BKbKCqvP6I+rmFHt06ZmyQtvB8xAkWdhFyr0ZUNZcxQ=
 github.com/google/go-cmp v0.5.6/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
-github.com/ondi/go-cache v0.0.0-20220704124719-e18a5c0fa086 h1:85fqNz0aza5Ycyeh1RwiOeWy92Q4Y4vv+2/qq+cgFBg=
-github.com/ondi/go-cache v0.0.0-20220704124719-e18a5c0fa086/go.mod h1:x8J3FOjzA2bQL33EoyKfBfTcbBFZ8U2KZPbAQplNlw8=
-github.com/ondi/go-ttl-cache v0.0.0-20220704130233-0f29718b060e h1:3z8d3JiMKzP6R009z+INKmmvf1jRQpPxcfhWPZ5RWGQ=
-github.com/ondi/go-ttl-cache v0.0.0-20220704130233-0f29718b060e/go.mod h1:6BllxmqOkyImb9Q7RKIMVHyr7pXyevLH98zxEpT70T4=
+github.com/ondi/go-cache v0.0.0-20220706043832-a192bbb22b21 h1:iJ1aVJIroqCengcX/GKW6OYuORT/Tl4f4Z57AgQFJFU=
+github.com/ondi/go-cache v0.0.0-20220706043832-a192bbb22b21/go.mod h1:x8J3FOjzA2bQL33EoyKfBfTcbBFZ8U2KZPbAQplNlw8=
+github.com/ondi/go-ttl-cache v0.0.0-20220706044558-7210508d666a h1:V1WPXbKu9Eny82d0nTUIDqt8tyaoOs4k02fMCgXwWNY=
+github.com/ondi/go-ttl-cache v0.0.0-20220706044558-7210508d666a/go.mod h1:SJ7fkoRMCdBbzMQAQJWGeZvacyAzdD2Ak309GQHAfuA=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543 h1:E7g+9GITq07hpfrRu66IVDexMakfv52eLZ2CXBWiKr4=
