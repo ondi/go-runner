@@ -70,9 +70,8 @@ func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration)
 	return self
 }
 
-func (self *Runner_t) __repack(ts time.Time, service string, in Repack) (added int) {
+func (self *Runner_t) __repack(ts time.Time, service string, in Repack, length int) (added int) {
 	var ok bool
-	length := in.Len()
 	for added < length {
 		_, ok = self.cx.Create(
 			ts,
@@ -88,15 +87,18 @@ func (self *Runner_t) __repack(ts time.Time, service string, in Repack) (added i
 		}
 	}
 	in.Resize(added)
-	return in.Len()
+	return
 }
 
 // Total() should be called before start
-func (self *Runner_t) __queue(ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (queued int) {
+func (self *Runner_t) __queue(ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (input int, queued int) {
 	var last, added int
 	available := self.queue_size - len(self.queue)
 	for ; available > 0 && last < len(in); last++ {
-		if added = self.__repack(ts, entry.Service, in[last]); added != 0 {
+		added = in[last].Len()
+		input += added
+		self.__repack(ts, entry.Service, in[last], added)
+		if added = in[last].Len(); added != 0 {
 			available--
 			queued += added
 		}
@@ -112,26 +114,26 @@ func (self *Runner_t) __queue(ts time.Time, entry Entry_t, fn Call, out Result, 
 	return
 }
 
-func (self *Runner_t) RunAny(ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (queued int) {
+func (self *Runner_t) RunAny(ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (input int, queued int) {
 	self.mx.Lock()
-	queued = self.__queue(ts, entry, fn, out, in)
+	input, queued = self.__queue(ts, entry, fn, out, in)
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunAnySv(count int, ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (queued int) {
+func (self *Runner_t) RunAnySv(count int, ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (input int, queued int) {
 	self.mx.Lock()
 	if self.services[entry.Service] < count {
-		queued = self.__queue(ts, entry, fn, out, in)
+		input, queued = self.__queue(ts, entry, fn, out, in)
 	}
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunAnyFn(count int, ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (queued int) {
+func (self *Runner_t) RunAnyFn(count int, ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (input int, queued int) {
 	self.mx.Lock()
 	if self.functions[entry] < count {
-		queued = self.__queue(ts, entry, fn, out, in)
+		input, queued = self.__queue(ts, entry, fn, out, in)
 	}
 	self.mx.Unlock()
 	return
