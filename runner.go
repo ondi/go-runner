@@ -121,7 +121,7 @@ func (self *Runner_t) RunAny(ts time.Time, entry Entry_t, fn Call, out Result, i
 	return
 }
 
-func (self *Runner_t) RunAnySv(count int, ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (input int, queued int) {
+func (self *Runner_t) RunAnySrv(count int, ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (input int, queued int) {
 	self.mx.Lock()
 	if self.services[entry.Service] < count {
 		input, queued = self.__queue(ts, entry, fn, out, in)
@@ -130,7 +130,7 @@ func (self *Runner_t) RunAnySv(count int, ts time.Time, entry Entry_t, fn Call, 
 	return
 }
 
-func (self *Runner_t) RunAnyFn(count int, ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (input int, queued int) {
+func (self *Runner_t) RunAnyFun(count int, ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (input int, queued int) {
 	self.mx.Lock()
 	if self.functions[entry] < count {
 		input, queued = self.__queue(ts, entry, fn, out, in)
