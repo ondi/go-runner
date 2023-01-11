@@ -11,27 +11,27 @@ import (
 	cache "github.com/ondi/go-ttl-cache"
 )
 
-type PackID interface {
+type Pack interface {
 	Len() int
 	IDString(i int) string
 }
 
 type Repack interface {
-	PackID
+	Pack
 	Swap(i int, j int)
 	Resize(i int)
+}
+
+type Entry_t struct {
+	Service  string
+	Function string
 }
 
 type Result interface {
 	Total(int)
 }
 
-type Call func(out Result, in PackID)
-
-type Entry_t struct {
-	Service  string
-	Function string
-}
+type Call func(out Result, in Pack) (err error)
 
 type msg_t struct {
 	entry Entry_t
@@ -139,7 +139,7 @@ func (self *Runner_t) RunAnyFun(count int, ts time.Time, entry Entry_t, fn Call,
 	return
 }
 
-func (self *Runner_t) Remove(ts time.Time, service string, pack PackID) (removed int) {
+func (self *Runner_t) Remove(ts time.Time, service string, pack Pack) (removed int) {
 	self.mx.Lock()
 	for i := pack.Len() - 1; i > -1; i-- {
 		if _, ok := self.cx.Remove(ts, FilterKey_t{Service: service, Id: pack.IDString(i)}); ok {

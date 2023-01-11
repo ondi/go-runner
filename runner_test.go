@@ -11,7 +11,7 @@ import (
 	"gotest.tools/assert"
 )
 
-func DoSome(out Result, in PackID) {}
+func DoSome(out Result, in Pack) (err error) { return }
 
 type MyPack_t struct {
 	In []string
