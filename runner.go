@@ -76,7 +76,7 @@ func (self *Runner_t) __repack(ts time.Time, service string, in Repack, length i
 		_, ok = self.cx.Create(
 			ts,
 			FilterKey_t{Service: service, Id: in.IDString(added)},
-			func() struct{} { return struct{}{} },
+			func(*struct{}) {},
 			func(*struct{}) {},
 		)
 		if ok {
