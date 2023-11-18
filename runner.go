@@ -36,6 +36,10 @@ type Filter_t struct {
 type Do func(in Pack, begin int, end int)
 type Done func(in Pack)
 
+func NoDo(Pack, int, int) {}
+
+func NoDone(Pack) {}
+
 type msg_t struct {
 	entry Entry_t
 	do    Do
@@ -141,17 +145,17 @@ func (self *Runner_t) RunAnyFun(count int, ts time.Time, entry Entry_t, do Do, d
 	return
 }
 
-func (self *Runner_t) Remove(ts time.Time, service string, pack Pack) (removed int) {
-	self.mx.Lock()
-	pack_len := pack.Len()
-	for i := 0; i < pack_len; i++ {
-		if _, ok := self.cx.Remove(ts, Filter_t{Service: service, Id: pack.IDString(i)}); ok {
-			removed++
-		}
-	}
-	self.mx.Unlock()
-	return
-}
+// func (self *Runner_t) Remove(ts time.Time, service string, pack Pack) (removed int) {
+// 	self.mx.Lock()
+// 	pack_len := pack.Len()
+// 	for i := 0; i < pack_len; i++ {
+// 		if _, ok := self.cx.Remove(ts, Filter_t{Service: service, Id: pack.IDString(i)}); ok {
+// 			removed++
+// 		}
+// 	}
+// 	self.mx.Unlock()
+// 	return
+// }
 
 func (self *Runner_t) run() {
 	defer self.wg.Done()
