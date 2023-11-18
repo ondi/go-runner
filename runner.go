@@ -20,6 +20,7 @@ type Repack interface {
 	Pack
 	Swap(i int, j int)
 	Resize(i int)
+	Running(i int) int
 }
 
 type Entry_t struct {
@@ -27,27 +28,26 @@ type Entry_t struct {
 	Function string
 }
 
-type Result interface {
-	Total(int)
-}
-
-type Call func(out Result, in Pack) (err error)
-
-type msg_t struct {
-	entry Entry_t
-	fn    Call
-	in    Repack
-	out   Result
-}
-
-type FilterKey_t struct {
+type Filter_t struct {
 	Service string
 	Id      string
 }
 
+type Do func(in Pack, begin int, end int)
+type Done func(in Pack)
+
+type msg_t struct {
+	entry Entry_t
+	do    Do
+	done  Done
+	in    Repack
+	begin int
+	end   int
+}
+
 type Runner_t struct {
 	mx         sync.Mutex
-	cx         *cache.Cache_t[FilterKey_t, struct{}]
+	cx         *cache.Cache_t[Filter_t, struct{}]
 	qx         chan msg_t
 	queue_size int
 	services   map[string]int
@@ -62,7 +62,7 @@ func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration)
 		functions:  map[Entry_t]int{},
 		queue_size: queue_size,
 	}
-	self.cx = cache.New(filter_size, filter_ttl, cache.Drop[FilterKey_t, struct{}])
+	self.cx = cache.New(filter_size, filter_ttl, cache.Drop[Filter_t, struct{}])
 	for i := 0; i < threads; i++ {
 		self.wg.Add(1)
 		go self.run()
@@ -75,7 +75,7 @@ func (self *Runner_t) __repack(ts time.Time, service string, in Repack, length i
 	for added < length {
 		_, ok = self.cx.Create(
 			ts,
-			FilterKey_t{Service: service, Id: in.IDString(added)},
+			Filter_t{Service: service, Id: in.IDString(added)},
 			func(*struct{}) {},
 			func(*struct{}) {},
 		)
@@ -90,50 +90,54 @@ func (self *Runner_t) __repack(ts time.Time, service string, in Repack, length i
 	return
 }
 
-// Total() should be called before start
-func (self *Runner_t) __queue(ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (input int, queued int) {
-	var last, added int
-	available := self.queue_size - len(self.qx)
-	for ; available > 0 && last < len(in); last++ {
-		added = in[last].Len()
-		input += added
-		self.__repack(ts, entry.Service, in[last], added)
-		if added = in[last].Len(); added != 0 {
-			available--
-			queued += added
-		}
+func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, step int, in Repack) (input int, queued int) {
+	input = in.Len()
+	if input > self.queue_size-len(self.qx) {
+		queued = self.queue_size - len(self.qx)
+	} else {
+		queued = input
 	}
-	out.Total(queued)
-	for available = 0; available < last; available++ {
-		if in[available].Len() != 0 {
-			self.services[entry.Service]++
-			self.functions[entry]++
-			self.qx <- msg_t{entry: entry, fn: fn, in: in[available], out: out}
-		}
+	if queued = self.__repack(ts, entry.Service, in, queued); queued == 0 {
+		return
 	}
+	parts := queued / step
+	if queued > parts*step {
+		in.Running(parts + 1)
+	} else {
+		in.Running(parts)
+	}
+	i := step
+	for ; i < queued; i += step {
+		self.services[entry.Service]++
+		self.functions[entry]++
+		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: i - step, end: i}
+	}
+	self.services[entry.Service]++
+	self.functions[entry]++
+	self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: i - step, end: queued}
 	return
 }
 
-func (self *Runner_t) RunAny(ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (input int, queued int) {
+func (self *Runner_t) RunAny(ts time.Time, entry Entry_t, do Do, done Done, step int, in Repack) (input int, queued int) {
 	self.mx.Lock()
-	input, queued = self.__queue(ts, entry, fn, out, in)
+	input, queued = self.__queue(ts, entry, do, done, step, in)
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunAnySrv(count int, ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (input int, queued int) {
+func (self *Runner_t) RunAnySrv(count int, ts time.Time, entry Entry_t, do Do, done Done, step int, in Repack) (input int, queued int) {
 	self.mx.Lock()
 	if self.services[entry.Service] < count {
-		input, queued = self.__queue(ts, entry, fn, out, in)
+		input, queued = self.__queue(ts, entry, do, done, step, in)
 	}
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunAnyFun(count int, ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (input int, queued int) {
+func (self *Runner_t) RunAnyFun(count int, ts time.Time, entry Entry_t, do Do, done Done, step int, in Repack) (input int, queued int) {
 	self.mx.Lock()
 	if self.functions[entry] < count {
-		input, queued = self.__queue(ts, entry, fn, out, in)
+		input, queued = self.__queue(ts, entry, do, done, step, in)
 	}
 	self.mx.Unlock()
 	return
@@ -143,7 +147,7 @@ func (self *Runner_t) Remove(ts time.Time, service string, pack Pack) (removed i
 	self.mx.Lock()
 	pack_len := pack.Len()
 	for i := 0; i < pack_len; i++ {
-		if _, ok := self.cx.Remove(ts, FilterKey_t{Service: service, Id: pack.IDString(i)}); ok {
+		if _, ok := self.cx.Remove(ts, Filter_t{Service: service, Id: pack.IDString(i)}); ok {
 			removed++
 		}
 	}
@@ -154,7 +158,10 @@ func (self *Runner_t) Remove(ts time.Time, service string, pack Pack) (removed i
 func (self *Runner_t) run() {
 	defer self.wg.Done()
 	for v := range self.qx {
-		v.fn(v.out, v.in)
+		v.do(v.in, v.begin, v.end)
+		if v.in.Running(-1) == 0 {
+			v.done(v.in)
+		}
 		self.mx.Lock()
 		if temp := self.services[v.entry.Service]; temp == 1 {
 			delete(self.services, v.entry.Service)
@@ -192,7 +199,7 @@ func (self *Runner_t) RangeFn(fn func(key Entry_t, value int) bool) {
 	self.mx.Unlock()
 }
 
-func (self *Runner_t) RangeFilter(ts time.Time, fn func(key FilterKey_t, value struct{}) bool) {
+func (self *Runner_t) RangeFilter(ts time.Time, fn func(key Filter_t, value struct{}) bool) {
 	self.mx.Lock()
 	self.cx.Range(ts, fn)
 	self.mx.Unlock()
@@ -215,4 +222,17 @@ func (self *Runner_t) Close() {
 	self.mx.Unlock()
 	close(self.qx)
 	self.wg.Wait()
+}
+
+func ThinOut(in_len, out_len int) (out []int) {
+	part_size := in_len / out_len
+	rest := in_len - out_len*part_size
+	for i := 0; i < in_len; i += part_size {
+		out = append(out, (i+i+part_size)/2)
+		if rest > 0 {
+			i++
+			rest--
+		}
+	}
+	return
 }
