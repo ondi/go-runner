@@ -48,7 +48,7 @@ type FilterKey_t struct {
 type Runner_t struct {
 	mx         sync.Mutex
 	cx         *cache.Cache_t[FilterKey_t, struct{}]
-	queue      chan msg_t
+	qx         chan msg_t
 	queue_size int
 	services   map[string]int
 	functions  map[Entry_t]int
@@ -57,7 +57,7 @@ type Runner_t struct {
 
 func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration) *Runner_t {
 	self := &Runner_t{
-		queue:      make(chan msg_t, queue_size),
+		qx:         make(chan msg_t, queue_size),
 		services:   map[string]int{},
 		functions:  map[Entry_t]int{},
 		queue_size: queue_size,
@@ -93,7 +93,7 @@ func (self *Runner_t) __repack(ts time.Time, service string, in Repack, length i
 // Total() should be called before start
 func (self *Runner_t) __queue(ts time.Time, entry Entry_t, fn Call, out Result, in []Repack) (input int, queued int) {
 	var last, added int
-	available := self.queue_size - len(self.queue)
+	available := self.queue_size - len(self.qx)
 	for ; available > 0 && last < len(in); last++ {
 		added = in[last].Len()
 		input += added
@@ -108,7 +108,7 @@ func (self *Runner_t) __queue(ts time.Time, entry Entry_t, fn Call, out Result, 
 		if in[available].Len() != 0 {
 			self.services[entry.Service]++
 			self.functions[entry]++
-			self.queue <- msg_t{entry: entry, fn: fn, in: in[available], out: out}
+			self.qx <- msg_t{entry: entry, fn: fn, in: in[available], out: out}
 		}
 	}
 	return
@@ -141,7 +141,8 @@ func (self *Runner_t) RunAnyFun(count int, ts time.Time, entry Entry_t, fn Call,
 
 func (self *Runner_t) Remove(ts time.Time, service string, pack Pack) (removed int) {
 	self.mx.Lock()
-	for i := pack.Len() - 1; i > -1; i-- {
+	pack_len := pack.Len()
+	for i := 0; i < pack_len; i++ {
 		if _, ok := self.cx.Remove(ts, FilterKey_t{Service: service, Id: pack.IDString(i)}); ok {
 			removed++
 		}
@@ -152,7 +153,7 @@ func (self *Runner_t) Remove(ts time.Time, service string, pack Pack) (removed i
 
 func (self *Runner_t) run() {
 	defer self.wg.Done()
-	for v := range self.queue {
+	for v := range self.qx {
 		v.fn(v.out, v.in)
 		self.mx.Lock()
 		if temp := self.services[v.entry.Service]; temp == 1 {
@@ -205,13 +206,13 @@ func (self *Runner_t) SizeFilter(ts time.Time) (res int) {
 }
 
 func (self *Runner_t) SizeQueue() int {
-	return len(self.queue)
+	return len(self.qx)
 }
 
 func (self *Runner_t) Close() {
 	self.mx.Lock()
 	self.queue_size = 0
 	self.mx.Unlock()
-	close(self.queue)
+	close(self.qx)
 	self.wg.Wait()
 }
