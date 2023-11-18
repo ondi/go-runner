@@ -92,9 +92,7 @@ func (self *Runner_t) __repack(ts time.Time, service string, in Repack, length i
 
 func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, step int, in Repack) (input int, queued int) {
 	input = in.Len()
-	if input > self.queue_size-len(self.qx) {
-		queued = self.queue_size - len(self.qx)
-	} else {
+	if queued = self.queue_size - len(self.qx); input < queued {
 		queued = input
 	}
 	if queued = self.__repack(ts, entry.Service, in, queued); queued == 0 {
