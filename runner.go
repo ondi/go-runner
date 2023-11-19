@@ -94,7 +94,7 @@ func (self *Runner_t) __repack(ts time.Time, service string, in Repack, length i
 	return
 }
 
-func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, queued int, parts int) {
+func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (parts int, input int, queued int) {
 	input = in.Len()
 	if parts = input / step; input > parts*step {
 		parts++
@@ -124,26 +124,26 @@ func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, in 
 	return
 }
 
-func (self *Runner_t) RunAny(ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, queued int, parts int) {
+func (self *Runner_t) RunAny(ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (parts int, input int, queued int) {
 	self.mx.Lock()
-	input, queued, parts = self.__queue(ts, entry, do, done, in, step)
+	parts, input, queued = self.__queue(ts, entry, do, done, in, step)
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunAnySrv(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, queued int, parts int) {
+func (self *Runner_t) RunAnySrv(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (parts int, input int, queued int) {
 	self.mx.Lock()
 	if self.services[entry.Service] < count {
-		input, queued, parts = self.__queue(ts, entry, do, done, in, step)
+		parts, input, queued = self.__queue(ts, entry, do, done, in, step)
 	}
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunAnyFun(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, queued int, parts int) {
+func (self *Runner_t) RunAnyFun(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (parts int, input int, queued int) {
 	self.mx.Lock()
 	if self.functions[entry] < count {
-		input, queued, parts = self.__queue(ts, entry, do, done, in, step)
+		parts, input, queued = self.__queue(ts, entry, do, done, in, step)
 	}
 	self.mx.Unlock()
 	return
