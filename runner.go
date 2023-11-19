@@ -110,15 +110,16 @@ func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, ste
 		parts++
 	}
 	in.Running(parts)
-	for parts = step; parts < queued; parts += step {
+	i := step
+	for ; i < queued; i += step {
 		self.services[entry.Service]++
 		self.functions[entry]++
-		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: parts - step, end: parts}
+		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: i - step, end: i}
 	}
-	if parts > queued {
+	if parts >= queued {
 		self.services[entry.Service]++
 		self.functions[entry]++
-		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: parts - step, end: queued}
+		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: i - step, end: queued}
 	}
 	return
 }
