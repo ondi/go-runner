@@ -105,7 +105,9 @@ func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, ste
 	} else {
 		queued = input
 	}
-	queued = self.__repack(ts, entry.Service, in, queued)
+	if queued = self.__repack(ts, entry.Service, in, queued); queued == 0 {
+		return
+	}
 	if parts = queued / step; queued > parts*step {
 		parts++
 	}
@@ -116,11 +118,9 @@ func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, ste
 		self.functions[entry]++
 		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: i - step, end: i}
 	}
-	if parts >= queued {
-		self.services[entry.Service]++
-		self.functions[entry]++
-		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: i - step, end: queued}
-	}
+	self.services[entry.Service]++
+	self.functions[entry]++
+	self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: i - step, end: queued}
 	return
 }
 
