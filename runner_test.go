@@ -5,17 +5,24 @@
 package runner
 
 import (
+	"sync"
 	"testing"
 	"time"
 
 	"gotest.tools/assert"
 )
 
-func DoSome(in Pack, begin int, end int) {}
+func DoSome(msg Pack, begin int, end int) {
+	_ = msg.(*MyPack_t)
+}
 
-func DoneSome(in Pack) {}
+func DoneSome(msg Pack) {
+	in := msg.(*MyPack_t)
+	in.wg.Wait()
+}
 
 type MyPack_t struct {
+	wg      sync.WaitGroup
 	In      []string
 	running int
 }
@@ -37,6 +44,7 @@ func (self *MyPack_t) Resize(i int) {
 }
 
 func (self *MyPack_t) Running(i int) int {
+	self.wg.Add(i)
 	self.running += i
 	return self.running
 }
