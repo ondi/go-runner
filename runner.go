@@ -96,17 +96,23 @@ func (self *Runner_t) __repack(ts time.Time, service string, in Repack, length i
 
 func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, step int, in Repack) (input int, queued int) {
 	input = in.Len()
-	if queued = self.queue_size - len(self.qx); input < queued {
+	parts := input / step
+	if input > parts*step {
+		parts++
+	}
+	if parts > self.queue_size-len(self.qx) {
+		parts = self.queue_size - len(self.qx)
+		queued = parts * step
+	} else {
 		queued = input
 	}
-	if queued = self.__repack(ts, entry.Service, in, queued); queued == 0 {
-		return
-	}
-	parts := queued / step
+	queued = self.__repack(ts, entry.Service, in, queued)
+	parts = queued / step
 	if queued > parts*step {
-		in.Running(parts + 1)
-	} else {
-		in.Running(parts)
+		parts++
+	}
+	if in.Running(parts) == 0 {
+		return
 	}
 	parts = step
 	for ; parts < queued; parts += step {
