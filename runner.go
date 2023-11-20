@@ -102,11 +102,12 @@ func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, in 
 	available := self.queue_size - len(self.qx)
 	if parts > available {
 		parts = available
-		queued = parts * step
+		queued = available * step
 	} else {
 		queued = input
 	}
-	if queued = self.__repack(ts, entry.Service, in, queued); queued == 0 {
+	self.__repack(ts, entry.Service, in, queued)
+	if queued = in.Len(); queued == 0 || available <= 0 {
 		return
 	}
 	if parts = queued / step; queued > parts*step {
