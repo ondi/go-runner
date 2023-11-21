@@ -108,7 +108,7 @@ func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, in 
 	} else {
 		queued = input
 	}
-	// the following code will filter id's and ask Repack to fit into space available, but it may ignore it.
+	// filter Repack and ask it to fit into available space, Repack.Swap() and Repack.Resize() may ignore it.
 	self.__repack(ts, entry.Service, in, queued)
 	if temp = in.Len(); temp > queued || temp == 0 {
 		return 0, input, 0
