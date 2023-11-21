@@ -99,30 +99,31 @@ func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, in 
 	if parts = input / step; input > parts*step {
 		parts++
 	}
-	available := self.queue_size - len(self.qx)
-	if parts > available {
-		parts = available
-		queued = available * step
+	temp := self.queue_size - len(self.qx)
+	if parts > temp {
+		parts = temp
+		queued = temp * step
 	} else {
 		queued = input
 	}
+	// the following code will filter id's and ask Repack to fit available space, but it may ignore it
 	self.__repack(ts, entry.Service, in, queued)
-	if in.Len() > queued {
-		return
+	if temp = in.Len(); temp > queued || temp == 0 {
+		return 0, input, 0
 	}
-	queued = in.Len()
+	queued = temp
 	if parts = queued / step; queued > parts*step {
 		parts++
 	}
 	in.Running(parts)
-	for available = step; available < queued; available += step {
+	for temp = step; temp < queued; temp += step {
 		self.services[entry.Service]++
 		self.functions[entry]++
-		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: available - step, end: available}
+		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: temp - step, end: temp}
 	}
 	self.services[entry.Service]++
 	self.functions[entry]++
-	self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: available - step, end: queued}
+	self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: temp - step, end: queued}
 	return
 }
 
