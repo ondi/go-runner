@@ -95,7 +95,9 @@ func (self *Runner_t) __repack(ts time.Time, service string, in Repack, length i
 }
 
 func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (parts int, input int, queued int) {
-	input = in.Len()
+	if input = in.Len(); input == 0 || step == 0 {
+		return
+	}
 	if parts = input / step; input > parts*step {
 		parts++
 	}
@@ -106,7 +108,7 @@ func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, in 
 	} else {
 		queued = input
 	}
-	// the following code will filter id's and ask Repack to fit available space, but it may ignore it
+	// the following code will filter id's and ask Repack to fit into space available, but it may ignore it.
 	self.__repack(ts, entry.Service, in, queued)
 	if temp = in.Len(); temp > queued || temp == 0 {
 		return 0, input, 0
