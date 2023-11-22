@@ -20,7 +20,7 @@ type Repack interface {
 	Pack
 	Swap(i int, j int)
 	Resize(i int)
-	Running(i int) int
+	Running(i int64) int64
 }
 
 type Entry_t struct {
@@ -117,7 +117,7 @@ func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, in 
 	if parts = queued / step; queued > parts*step {
 		parts++
 	}
-	in.Running(parts)
+	in.Running(int64(parts))
 	for temp = step; temp < queued; temp += step {
 		self.services[entry.Service]++
 		self.functions[entry]++
