@@ -56,7 +56,7 @@ func (self *MyPack_t) Resize(i int) {
 
 func (self *MyPack_t) Running(i int64) int64 {
 	self.wg.Add(int(i))
-	return atomic.AddInt64(&self.running, int64(i))
+	return atomic.AddInt64(&self.running, i)
 }
 
 var name = Entry_t{Service: "default", Function: "dosome"}
