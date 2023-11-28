@@ -51,12 +51,12 @@ type msg_t struct {
 
 type Runner_t struct {
 	mx         sync.Mutex
+	wg         sync.WaitGroup
 	cx         *cache.Cache_t[Filter_t, struct{}]
 	qx         chan msg_t
-	queue_size int
 	services   map[string]int
 	functions  map[Entry_t]int
-	wg         sync.WaitGroup
+	queue_size int
 }
 
 func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration) *Runner_t {
