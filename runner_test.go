@@ -156,15 +156,15 @@ func Test_add05(t *testing.T) {
 	assert.Assert(t, r.SizeFilter(ts) == 3)
 	assert.Assert(t, r.SizeQueue() == 0)
 
-	removed := r.Remove(ts, name.Service, &MyPack_t{In: []string{"3"}})
+	removed := r.Remove(ts, name, &MyPack_t{In: []string{"3"}})
 	assert.Assert(t, removed == 1)
 	assert.Assert(t, r.SizeFilter(ts) == 2)
 
-	removed = r.Remove(ts, name.Service, &MyPack_t{In: []string{"2"}})
+	removed = r.Remove(ts, name, &MyPack_t{In: []string{"2"}})
 	assert.Assert(t, removed == 1)
 	assert.Assert(t, r.SizeFilter(ts) == 1)
 
-	removed = r.Remove(ts, name.Service, &MyPack_t{In: []string{"1"}})
+	removed = r.Remove(ts, name, &MyPack_t{In: []string{"1"}})
 	assert.Assert(t, removed == 1)
 	assert.Assert(t, r.SizeFilter(ts) == 0)
 }
@@ -211,12 +211,12 @@ func Test_add08(t *testing.T) {
 
 	ts = ts.Add(-10 * time.Second)
 
-	removed := r.Remove(ts, name.Service, &MyPack_t{In: []string{"1"}})
+	removed := r.Remove(ts, name, &MyPack_t{In: []string{"1"}})
 	assert.Assert(t, removed == 1)
 	assert.Assert(t, r.SizeFilter(ts) == 1)
 	assert.Assert(t, r.SizeQueue() == 0)
 
-	removed = r.Remove(ts, name.Service, &MyPack_t{In: []string{"2"}})
+	removed = r.Remove(ts, name, &MyPack_t{In: []string{"2"}})
 	assert.Assert(t, removed == 1)
 	assert.Assert(t, r.SizeFilter(ts) == 0)
 	assert.Assert(t, r.SizeQueue() == 0)
@@ -236,12 +236,12 @@ func Test_add09(t *testing.T) {
 
 	ts = ts.Add(10 * time.Second)
 
-	removed := r.Remove(ts, name.Service, &MyPack_t{In: []string{"1"}})
+	removed := r.Remove(ts, name, &MyPack_t{In: []string{"1"}})
 	assert.Assert(t, removed == 0)
 	assert.Assert(t, r.SizeFilter(ts) == 0)
 	assert.Assert(t, r.SizeQueue() == 0)
 
-	removed = r.Remove(ts, name.Service, &MyPack_t{In: []string{"2"}})
+	removed = r.Remove(ts, name, &MyPack_t{In: []string{"2"}})
 	assert.Assert(t, removed == 0)
 	assert.Assert(t, r.SizeFilter(ts) == 0)
 	assert.Assert(t, r.SizeQueue() == 0)

@@ -29,8 +29,8 @@ type Entry_t struct {
 }
 
 type Filter_t struct {
-	Service string
-	Id      string
+	Entry Entry_t
+	Id    string
 }
 
 type Do func(in Pack, begin int, end int)
@@ -74,12 +74,12 @@ func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration)
 	return self
 }
 
-func (self *Runner_t) __repack(ts time.Time, service string, in Repack, length int) (added int) {
+func (self *Runner_t) __repack(ts time.Time, entry Entry_t, in Repack, length int) (added int) {
 	var ok bool
 	for added < length {
 		_, ok = self.cx.Create(
 			ts,
-			Filter_t{Service: service, Id: in.IDString(added)},
+			Filter_t{Entry: entry, Id: in.IDString(added)},
 			func(*struct{}) {},
 			func(*struct{}) {},
 		)
@@ -109,7 +109,7 @@ func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, in 
 		queued = input
 	}
 	// filter Repack and ask it to fit into available space, Repack.Swap() and Repack.Resize() may ignore it.
-	self.__repack(ts, entry.Service, in, queued)
+	self.__repack(ts, entry, in, queued)
 	if temp = in.Len(); temp > queued || temp == 0 {
 		return 0, input, 0
 	}
@@ -154,11 +154,11 @@ func (self *Runner_t) RunAnyFun(count int, ts time.Time, entry Entry_t, do Do, d
 	return
 }
 
-func (self *Runner_t) Remove(ts time.Time, service string, pack Pack) (removed int) {
+func (self *Runner_t) Remove(ts time.Time, entry Entry_t, pack Pack) (removed int) {
 	self.mx.Lock()
 	pack_len := pack.Len()
 	for i := 0; i < pack_len; i++ {
-		if _, ok := self.cx.Remove(ts, Filter_t{Service: service, Id: pack.IDString(i)}); ok {
+		if _, ok := self.cx.Remove(ts, Filter_t{Entry: entry, Id: pack.IDString(i)}); ok {
 			removed++
 		}
 	}
