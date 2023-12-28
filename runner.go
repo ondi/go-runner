@@ -96,82 +96,91 @@ func (self *Runner_t) __repack(ts time.Time, entry Entry_t, in Repack, length in
 	return
 }
 
-func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (running int, input int, queued int) {
+func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
 	if input = in.Len(); input == 0 || step == 0 {
 		return
 	}
 	if running = input / step; input > running*step {
 		running++
 	}
-	temp := self.queue_size - len(self.qx)
-	if running > temp {
-		running = temp
-		queued = temp * step
+	free_space := self.queue_size - len(self.qx)
+	if running > free_space {
+		available = free_space * step
 	} else {
-		queued = input
+		available = input
 	}
-	// filter Repack and ask it to fit into available space, Repack.Swap() and Repack.Resize() may ignore it.
-	self.__repack(ts, entry, in, queued)
-	if temp = in.Len(); temp > queued || temp == 0 {
-		return 0, input, 0
+	// Repack may ignore Swap() and Resize()
+	self.__repack(ts, entry, in, available)
+	if repack = in.Len(); repack > available || repack == 0 {
+		running = 0
+		return
 	}
-	queued = temp
-	if running = queued / step; queued > running*step {
+	if running = repack / step; repack > running*step {
 		running++
 	}
 	in.Running(int64(running))
-	for temp = step; temp < queued; temp += step {
+	for free_space = step; free_space < repack; free_space += step {
 		self.services[entry.Service]++
 		self.functions[entry]++
-		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: temp - step, end: temp}
+		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: free_space - step, end: free_space}
 	}
 	self.services[entry.Service]++
 	self.functions[entry]++
-	self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: temp - step, end: queued}
+	self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: free_space - step, end: repack}
 	return
 }
 
-func (self *Runner_t) RunAny(ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (running int, input int, queued int) {
+func (self *Runner_t) RunAny(ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
 	self.mx.Lock()
-	running, input, queued = self.__queue(ts, entry, do, done, in, step)
+	input, available, repack, running = self.__queue(ts, entry, do, done, in, step)
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunService(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (running int, input int, queued int) {
+func (self *Runner_t) RunService(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
 	self.mx.Lock()
 	if self.services[entry.Service] < count {
-		running, input, queued = self.__queue(ts, entry, do, done, in, step)
+		input, available, repack, running = self.__queue(ts, entry, do, done, in, step)
 	}
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunEntry(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (running int, input int, queued int) {
+func (self *Runner_t) RunEntry(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
 	self.mx.Lock()
 	if self.functions[entry] < count {
-		running, input, queued = self.__queue(ts, entry, do, done, in, step)
+		input, available, repack, running = self.__queue(ts, entry, do, done, in, step)
 	}
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunServiceWait(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (running int, input int, queued int) {
+func (self *Runner_t) RunServiceWait(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
 	self.mx.Lock()
-	for self.services[entry.Service] >= count {
+	for {
+		if self.services[entry.Service] < count {
+			input, available, repack, running = self.__queue(ts, entry, do, done, in, step)
+			if repack == 0 || running > 0 {
+				break
+			}
+		}
 		self.wc.Wait()
 	}
-	running, input, queued = self.__queue(ts, entry, do, done, in, step)
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunEntryWait(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (running int, input int, queued int) {
+func (self *Runner_t) RunEntryWait(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
 	self.mx.Lock()
-	for self.functions[entry] >= count {
+	for {
+		if self.functions[entry] < count {
+			input, available, repack, running = self.__queue(ts, entry, do, done, in, step)
+			if repack == 0 || running > 0 {
+				break
+			}
+		}
 		self.wc.Wait()
 	}
-	running, input, queued = self.__queue(ts, entry, do, done, in, step)
 	self.mx.Unlock()
 	return
 }
