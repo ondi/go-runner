@@ -161,7 +161,7 @@ func (self *Runner_t) RunServiceWait(count int, ts time.Time, entry Entry_t, do 
 	for {
 		if self.services[entry.Service] < count {
 			input, available, repack, running = self.__queue(ts, entry, do, done, in, step)
-			if running > 0 || input == 0 || available > 0 && repack == 0 {
+			if running > 0 || self.queue_size == 0 || input == 0 || available > 0 && repack == 0 {
 				break
 			}
 		}
@@ -176,7 +176,7 @@ func (self *Runner_t) RunEntryWait(count int, ts time.Time, entry Entry_t, do Do
 	for {
 		if self.functions[entry] < count {
 			input, available, repack, running = self.__queue(ts, entry, do, done, in, step)
-			if running > 0 || input == 0 || available > 0 && repack == 0 {
+			if running > 0 || self.queue_size == 0 || input == 0 || available > 0 && repack == 0 {
 				break
 			}
 		}
