@@ -159,8 +159,7 @@ func (self *Runner_t) RunServiceWait(count int, ts time.Time, entry Entry_t, do 
 	self.mx.Lock()
 	for {
 		if self.services[entry.Service] < count {
-			input, available, repack, running = self.__queue(ts, entry, do, done, in, step)
-			if repack == 0 || running > 0 {
+			if input, available, repack, running = self.__queue(ts, entry, do, done, in, step); repack == 0 || running > 0 {
 				break
 			}
 		}
@@ -174,8 +173,7 @@ func (self *Runner_t) RunEntryWait(count int, ts time.Time, entry Entry_t, do Do
 	self.mx.Lock()
 	for {
 		if self.functions[entry] < count {
-			input, available, repack, running = self.__queue(ts, entry, do, done, in, step)
-			if repack == 0 || running > 0 {
+			if input, available, repack, running = self.__queue(ts, entry, do, done, in, step); repack == 0 || running > 0 {
 				break
 			}
 		}
