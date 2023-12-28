@@ -53,6 +53,7 @@ type Runner_t struct {
 	mx         sync.Mutex
 	wg         sync.WaitGroup
 	cx         *cache.Cache_t[Filter_t, struct{}]
+	wc         *sync.Cond
 	qx         chan msg_t
 	services   map[string]int
 	functions  map[Entry_t]int
@@ -67,6 +68,7 @@ func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration)
 		queue_size: queue_size,
 	}
 	self.cx = cache.New(filter_size, filter_ttl, cache.Drop[Filter_t, struct{}])
+	self.wc = sync.NewCond(&self.mx)
 	for i := 0; i < threads; i++ {
 		self.wg.Add(1)
 		go self.run()
@@ -136,7 +138,7 @@ func (self *Runner_t) RunAny(ts time.Time, entry Entry_t, do Do, done Done, in R
 	return
 }
 
-func (self *Runner_t) RunAnySrv(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (running int, input int, queued int) {
+func (self *Runner_t) RunService(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (running int, input int, queued int) {
 	self.mx.Lock()
 	if self.services[entry.Service] < count {
 		running, input, queued = self.__queue(ts, entry, do, done, in, step)
@@ -145,11 +147,31 @@ func (self *Runner_t) RunAnySrv(count int, ts time.Time, entry Entry_t, do Do, d
 	return
 }
 
-func (self *Runner_t) RunAnyFun(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (running int, input int, queued int) {
+func (self *Runner_t) RunEntry(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (running int, input int, queued int) {
 	self.mx.Lock()
 	if self.functions[entry] < count {
 		running, input, queued = self.__queue(ts, entry, do, done, in, step)
 	}
+	self.mx.Unlock()
+	return
+}
+
+func (self *Runner_t) RunServiceWait(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (running int, input int, queued int) {
+	self.mx.Lock()
+	for self.services[entry.Service] >= count {
+		self.wc.Wait()
+	}
+	running, input, queued = self.__queue(ts, entry, do, done, in, step)
+	self.mx.Unlock()
+	return
+}
+
+func (self *Runner_t) RunEntryWait(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (running int, input int, queued int) {
+	self.mx.Lock()
+	for self.functions[entry] >= count {
+		self.wc.Wait()
+	}
+	running, input, queued = self.__queue(ts, entry, do, done, in, step)
 	self.mx.Unlock()
 	return
 }
@@ -184,6 +206,7 @@ func (self *Runner_t) run() {
 		} else if temp != 0 {
 			self.functions[v.entry]--
 		}
+		self.wc.Broadcast()
 		self.mx.Unlock()
 	}
 }
