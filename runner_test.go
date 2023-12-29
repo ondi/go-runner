@@ -59,7 +59,7 @@ func (self *MyPack_t) Running(i int64) int64 {
 	return atomic.AddInt64(&self.running, i)
 }
 
-var name = Entry_t{Service: "default", Function: "dosome"}
+var name = Entry_t{Module: "default", Function: "default"}
 
 func Test_add01(t *testing.T) {
 	r := New(10, 1, 100, 15*time.Second)

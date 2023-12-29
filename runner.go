@@ -24,7 +24,7 @@ type Repack interface {
 }
 
 type Entry_t struct {
-	Service  string
+	Module   string
 	Function string
 }
 
@@ -55,7 +55,7 @@ type Runner_t struct {
 	cx         *cache.Cache_t[Filter_t, struct{}]
 	wc         *sync.Cond
 	qx         chan msg_t
-	services   map[string]int
+	modules    map[string]int
 	functions  map[Entry_t]int
 	queue_size int
 }
@@ -63,7 +63,7 @@ type Runner_t struct {
 func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration) *Runner_t {
 	self := &Runner_t{
 		qx:         make(chan msg_t, queue_size),
-		services:   map[string]int{},
+		modules:    map[string]int{},
 		functions:  map[Entry_t]int{},
 		queue_size: queue_size,
 	}
@@ -121,11 +121,11 @@ func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, in 
 	}
 	in.Running(int64(running))
 	for free_space = step; free_space < repack; free_space += step {
-		self.services[entry.Service]++
+		self.modules[entry.Module]++
 		self.functions[entry]++
 		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: free_space - step, end: free_space}
 	}
-	self.services[entry.Service]++
+	self.modules[entry.Module]++
 	self.functions[entry]++
 	self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: free_space - step, end: repack}
 	return
@@ -138,9 +138,9 @@ func (self *Runner_t) RunAny(ts time.Time, entry Entry_t, do Do, done Done, in R
 	return
 }
 
-func (self *Runner_t) RunService(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
+func (self *Runner_t) RunModule(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
 	self.mx.Lock()
-	if self.services[entry.Service] < count {
+	if self.modules[entry.Module] < count {
 		input, available, repack, running = self.__queue(ts, entry, do, done, in, step)
 	}
 	self.mx.Unlock()
@@ -156,12 +156,12 @@ func (self *Runner_t) RunEntry(count int, ts time.Time, entry Entry_t, do Do, do
 	return
 }
 
-func (self *Runner_t) RunServiceWait(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
+func (self *Runner_t) RunModuleWait(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
 	self.mx.Lock()
 	for {
-		if self.services[entry.Service] < count {
+		if self.modules[entry.Module] < count {
 			input, available, repack, running = self.__queue(ts, entry, do, done, in, step)
-			if running > 0 || self.queue_size == 0 || input == 0 || available > 0 && repack == 0 {
+			if running > 0 || input == 0 || available > 0 && repack == 0 || self.queue_size == 0 {
 				break
 			}
 		}
@@ -176,7 +176,7 @@ func (self *Runner_t) RunEntryWait(count int, ts time.Time, entry Entry_t, do Do
 	for {
 		if self.functions[entry] < count {
 			input, available, repack, running = self.__queue(ts, entry, do, done, in, step)
-			if running > 0 || self.queue_size == 0 || input == 0 || available > 0 && repack == 0 {
+			if running > 0 || input == 0 || available > 0 && repack == 0 || self.queue_size == 0 {
 				break
 			}
 		}
@@ -206,10 +206,10 @@ func (self *Runner_t) run() {
 			v.done(v.in)
 		}
 		self.mx.Lock()
-		if temp := self.services[v.entry.Service]; temp == 1 {
-			delete(self.services, v.entry.Service)
+		if temp := self.modules[v.entry.Module]; temp == 1 {
+			delete(self.modules, v.entry.Module)
 		} else if temp != 0 {
-			self.services[v.entry.Service]--
+			self.modules[v.entry.Module]--
 		}
 		if temp := self.functions[v.entry]; temp == 1 {
 			delete(self.functions, v.entry)
@@ -221,9 +221,9 @@ func (self *Runner_t) run() {
 	}
 }
 
-func (self *Runner_t) RangeSv(fn func(key string, value int) bool) {
+func (self *Runner_t) RangeModule(fn func(key string, value int) bool) {
 	self.mx.Lock()
-	for k, v := range self.services {
+	for k, v := range self.modules {
 		if !fn(k, v) {
 			self.mx.Unlock()
 			return
@@ -232,7 +232,7 @@ func (self *Runner_t) RangeSv(fn func(key string, value int) bool) {
 	self.mx.Unlock()
 }
 
-func (self *Runner_t) RangeFn(fn func(key Entry_t, value int) bool) {
+func (self *Runner_t) RangeEntry(fn func(key Entry_t, value int) bool) {
 	self.mx.Lock()
 	for k, v := range self.functions {
 		if !fn(k, v) {
