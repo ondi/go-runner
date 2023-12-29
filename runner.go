@@ -147,7 +147,7 @@ func (self *Runner_t) RunModule(count int, ts time.Time, entry Entry_t, do Do, d
 	return
 }
 
-func (self *Runner_t) RunEntry(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
+func (self *Runner_t) RunFunction(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
 	self.mx.Lock()
 	if self.functions[entry] < count {
 		input, available, repack, running = self.__queue(ts, entry, do, done, in, step)
@@ -171,7 +171,7 @@ func (self *Runner_t) RunModuleWait(count int, ts time.Time, entry Entry_t, do D
 	return
 }
 
-func (self *Runner_t) RunEntryWait(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
+func (self *Runner_t) RunFunctionWait(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
 	self.mx.Lock()
 	for {
 		if self.functions[entry] < count {
@@ -232,7 +232,7 @@ func (self *Runner_t) RangeModule(fn func(key string, value int) bool) {
 	self.mx.Unlock()
 }
 
-func (self *Runner_t) RangeEntry(fn func(key Entry_t, value int) bool) {
+func (self *Runner_t) RangeFunction(fn func(key Entry_t, value int) bool) {
 	self.mx.Lock()
 	for k, v := range self.functions {
 		if !fn(k, v) {
