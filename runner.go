@@ -12,13 +12,12 @@ import (
 )
 
 type Pack interface {
-	Len() int
-	IDString(i int) string
 	Running(i int64) int64
 }
 
 type Repack interface {
-	Pack
+	Len() int
+	IDString(i int) string
 	Swap(i int, j int)
 }
 
@@ -96,7 +95,7 @@ func (self *Runner_t) FilterAdd(ts time.Time, entry Entry_t, in Repack, length i
 	return
 }
 
-func (self *Runner_t) FilterDel(ts time.Time, entry Entry_t, pack Pack) (removed int) {
+func (self *Runner_t) FilterDel(ts time.Time, entry Entry_t, pack Repack) (removed int) {
 	var ok bool
 	pack_len := pack.Len()
 	self.mx.Lock()
