@@ -19,7 +19,6 @@ type Pack interface {
 type Repack interface {
 	Pack
 	Swap(i int, j int)
-	Resize(i int)
 	Running(i int64) int64
 }
 
@@ -34,11 +33,10 @@ type Filter_t struct {
 }
 
 type Do func(in Pack, begin int, end int)
-type Done func(in Pack)
+type Done func(in Pack, total int)
 
 func NoDo(Pack, int, int) {}
-
-func NoDone(Pack) {}
+func NoDone(Pack, int)    {}
 
 type msg_t struct {
 	entry Entry_t
@@ -47,6 +45,7 @@ type msg_t struct {
 	in    Repack
 	begin int
 	end   int
+	total int
 }
 
 type Runner_t struct {
@@ -76,8 +75,9 @@ func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration)
 	return self
 }
 
-func (self *Runner_t) __repack(ts time.Time, entry Entry_t, in Repack, length int) (added int) {
+func (self *Runner_t) FilterAdd(ts time.Time, entry Entry_t, in Repack, length int) (added int) {
 	var ok bool
+	self.mx.Lock()
 	for added < length {
 		_, ok = self.cx.Create(
 			ts,
@@ -92,76 +92,79 @@ func (self *Runner_t) __repack(ts time.Time, entry Entry_t, in Repack, length in
 			in.Swap(added, length)
 		}
 	}
-	in.Resize(added)
+	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) __queue(ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
-	if step == 0 {
+func (self *Runner_t) FilterDel(ts time.Time, entry Entry_t, pack Pack) (removed int) {
+	var ok bool
+	pack_len := pack.Len()
+	self.mx.Lock()
+	for i := 0; i < pack_len; i++ {
+		if _, ok = self.cx.Remove(ts, Filter_t{Entry: entry, Id: pack.IDString(i)}); ok {
+			removed++
+		}
+	}
+	self.mx.Unlock()
+	return
+}
+
+func (self *Runner_t) __queue(entry Entry_t, do Do, done Done, in Repack, input int, step int) (available int, running int) {
+	if input == 0 || step == 0 {
 		return
 	}
-	input = in.Len()
 	if running = input / step; input > running*step {
 		running++
 	}
-	free_space := self.queue_size - len(self.qx)
-	if running > free_space {
-		available = free_space * step
-	} else {
-		available = input
-	}
-	// Repack may ignore Swap() and Resize()
-	self.__repack(ts, entry, in, available)
-	if repack = in.Len(); repack > available || repack == 0 {
+	available = self.queue_size - len(self.qx)
+	if running > available {
 		running = 0
 		return
 	}
-	if running = repack / step; repack > running*step {
-		running++
-	}
 	in.Running(int64(running))
-	for free_space = step; free_space < repack; free_space += step {
+	parts := step
+	for ; parts < input; parts += step {
 		self.modules[entry.Module]++
 		self.functions[entry]++
-		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: free_space - step, end: free_space}
+		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: parts - step, end: parts, total: input}
 	}
 	self.modules[entry.Module]++
 	self.functions[entry]++
-	self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: free_space - step, end: repack}
+	self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: parts - step, end: input, total: input}
 	return
 }
 
-func (self *Runner_t) RunAny(ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
+func (self *Runner_t) RunAny(entry Entry_t, do Do, done Done, in Repack, input int, step int) (available int, running int) {
 	self.mx.Lock()
-	input, available, repack, running = self.__queue(ts, entry, do, done, in, step)
+	available, running = self.__queue(entry, do, done, in, input, step)
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunModule(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
+func (self *Runner_t) RunModule(count int, entry Entry_t, do Do, done Done, in Repack, input int, step int) (available int, running int) {
 	self.mx.Lock()
 	if self.modules[entry.Module] < count {
-		input, available, repack, running = self.__queue(ts, entry, do, done, in, step)
+		available, running = self.__queue(entry, do, done, in, input, step)
 	}
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunFunction(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
+func (self *Runner_t) RunFunction(count int, entry Entry_t, do Do, done Done, in Repack, input int, step int) (available int, running int) {
 	self.mx.Lock()
 	if self.functions[entry] < count {
-		input, available, repack, running = self.__queue(ts, entry, do, done, in, step)
+		available, running = self.__queue(entry, do, done, in, input, step)
 	}
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunModuleWait(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
+func (self *Runner_t) RunModuleWait(count int, entry Entry_t, do Do, done Done, in Repack, input int, step int) (available int, running int) {
 	self.mx.Lock()
 	for {
 		if self.modules[entry.Module] < count {
-			input, available, repack, running = self.__queue(ts, entry, do, done, in, step)
-			if running > 0 || input == 0 || available > 0 && repack == 0 || self.queue_size == 0 {
+			available, running = self.__queue(entry, do, done, in, input, step)
+			if running > 0 || input == 0 || step == 0 || self.queue_size == 0 {
 				break
 			}
 		}
@@ -171,28 +174,16 @@ func (self *Runner_t) RunModuleWait(count int, ts time.Time, entry Entry_t, do D
 	return
 }
 
-func (self *Runner_t) RunFunctionWait(count int, ts time.Time, entry Entry_t, do Do, done Done, in Repack, step int) (input int, available int, repack int, running int) {
+func (self *Runner_t) RunFunctionWait(count int, entry Entry_t, do Do, done Done, in Repack, input int, step int) (available int, running int) {
 	self.mx.Lock()
 	for {
 		if self.functions[entry] < count {
-			input, available, repack, running = self.__queue(ts, entry, do, done, in, step)
-			if running > 0 || input == 0 || available > 0 && repack == 0 || self.queue_size == 0 {
+			available, running = self.__queue(entry, do, done, in, input, step)
+			if running > 0 || input == 0 || step == 0 || self.queue_size == 0 {
 				break
 			}
 		}
 		self.wc.Wait()
-	}
-	self.mx.Unlock()
-	return
-}
-
-func (self *Runner_t) Remove(ts time.Time, entry Entry_t, pack Pack) (removed int) {
-	self.mx.Lock()
-	pack_len := pack.Len()
-	for i := 0; i < pack_len; i++ {
-		if _, ok := self.cx.Remove(ts, Filter_t{Entry: entry, Id: pack.IDString(i)}); ok {
-			removed++
-		}
 	}
 	self.mx.Unlock()
 	return
@@ -203,7 +194,7 @@ func (self *Runner_t) run() {
 	for v := range self.qx {
 		v.do(v.in, v.begin, v.end)
 		if v.in.Running(-1) == 0 {
-			v.done(v.in)
+			v.done(v.in, v.total)
 		}
 		self.mx.Lock()
 		if temp := self.modules[v.entry.Module]; temp == 1 {
