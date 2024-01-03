@@ -12,11 +12,12 @@ import (
 )
 
 type Pack interface {
+	Len() int
 	Running(i int64) int64
 }
 
 type Repack interface {
-	Len() int
+	Pack
 	IDString(i int) string
 	Swap(i int, j int)
 }
