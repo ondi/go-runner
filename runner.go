@@ -6,9 +6,6 @@ package runner
 
 import (
 	"sync"
-	"time"
-
-	cache "github.com/ondi/go-ttl-cache"
 )
 
 type Pack interface {
@@ -16,20 +13,9 @@ type Pack interface {
 	Running(i int64) int64
 }
 
-type Repack interface {
-	Pack
-	IDString(i int) string
-	Swap(i int, j int)
-}
-
 type Entry_t struct {
 	Module   string
 	Function string
-}
-
-type Filter_t struct {
-	Entry Entry_t
-	Id    string
 }
 
 type Do func(in Pack, begin int, end int)
@@ -51,7 +37,6 @@ type msg_t struct {
 type Runner_t struct {
 	mx         sync.Mutex
 	wg         sync.WaitGroup
-	cx         *cache.Cache_t[Filter_t, struct{}]
 	wc         *sync.Cond
 	qx         chan msg_t
 	modules    map[string]int
@@ -59,54 +44,19 @@ type Runner_t struct {
 	queue_size int
 }
 
-func New(threads int, queue_size int, filter_size int, filter_ttl time.Duration) *Runner_t {
+func NewRunner(threads int, queue_size int) *Runner_t {
 	self := &Runner_t{
 		qx:         make(chan msg_t, queue_size),
 		modules:    map[string]int{},
 		functions:  map[Entry_t]int{},
 		queue_size: queue_size,
 	}
-	self.cx = cache.New(filter_size, filter_ttl, cache.Drop[Filter_t, struct{}])
 	self.wc = sync.NewCond(&self.mx)
 	for i := 0; i < threads; i++ {
 		self.wg.Add(1)
 		go self.run()
 	}
 	return self
-}
-
-func (self *Runner_t) FilterAdd(ts time.Time, entry Entry_t, in Repack, length int) (added int) {
-	var ok bool
-	self.mx.Lock()
-	for added < length {
-		_, ok = self.cx.Create(
-			ts,
-			Filter_t{Entry: entry, Id: in.IDString(added)},
-			func(*struct{}) {},
-			func(*struct{}) {},
-		)
-		if ok {
-			added++
-		} else {
-			length--
-			in.Swap(added, length)
-		}
-	}
-	self.mx.Unlock()
-	return
-}
-
-func (self *Runner_t) FilterDel(ts time.Time, entry Entry_t, pack Repack) (removed int) {
-	var ok bool
-	pack_len := pack.Len()
-	self.mx.Lock()
-	for i := 0; i < pack_len; i++ {
-		if _, ok = self.cx.Remove(ts, Filter_t{Entry: entry, Id: pack.IDString(i)}); ok {
-			removed++
-		}
-	}
-	self.mx.Unlock()
-	return
 }
 
 func (self *Runner_t) __queue(entry Entry_t, do Do, done Done, in Pack, input int, step int) (running int) {
@@ -121,15 +71,15 @@ func (self *Runner_t) __queue(entry Entry_t, do Do, done Done, in Pack, input in
 		return
 	}
 	in.Running(int64(running))
-	parts := step
-	for ; parts < input; parts += step {
+	for next := 0; next < input; next += step {
 		self.modules[entry.Module]++
 		self.functions[entry]++
-		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: parts - step, end: parts, total: input}
+		if next+step < input {
+			self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: next, end: next + step, total: input}
+		} else {
+			self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: next, end: input, total: input}
+		}
 	}
-	self.modules[entry.Module]++
-	self.functions[entry]++
-	self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: parts - step, end: input, total: input}
 	return
 }
 
@@ -233,20 +183,7 @@ func (self *Runner_t) RangeFunction(fn func(key Entry_t, value int) bool) {
 	self.mx.Unlock()
 }
 
-func (self *Runner_t) RangeFilter(ts time.Time, fn func(key Filter_t, value struct{}) bool) {
-	self.mx.Lock()
-	self.cx.Range(ts, fn)
-	self.mx.Unlock()
-}
-
-func (self *Runner_t) SizeFilter(ts time.Time) (res int) {
-	self.mx.Lock()
-	res = self.cx.Size(ts)
-	self.mx.Unlock()
-	return
-}
-
-func (self *Runner_t) SizeQueue() int {
+func (self *Runner_t) Size() int {
 	return len(self.qx)
 }
 
@@ -256,17 +193,4 @@ func (self *Runner_t) Close() {
 	self.mx.Unlock()
 	close(self.qx)
 	self.wg.Wait()
-}
-
-func ThinOut(in_len, out_len int) (out []int) {
-	part_size := in_len / out_len
-	rest := in_len - out_len*part_size
-	for i := 0; i < in_len; i += part_size {
-		out = append(out, (i+i+part_size)/2)
-		if rest > 0 {
-			i++
-			rest--
-		}
-	}
-	return
 }
