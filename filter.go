@@ -11,12 +11,6 @@ import (
 	cache "github.com/ondi/go-ttl-cache"
 )
 
-type Repack interface {
-	Len() int
-	IDString(i int) string
-	Swap(i int, j int)
-}
-
 type FilterKey_t struct {
 	Entry Entry_t
 	Id    string

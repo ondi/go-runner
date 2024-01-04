@@ -13,6 +13,12 @@ type Pack interface {
 	Running(i int64) int64
 }
 
+type Repack interface {
+	Pack
+	IDString(i int) string
+	Swap(i int, j int)
+}
+
 type Entry_t struct {
 	Module   string
 	Function string
