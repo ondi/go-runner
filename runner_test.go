@@ -130,7 +130,7 @@ func Test_add04(t *testing.T) {
 	queued = f.Add(ts, my_entry, in, in.Len())
 	running = r.RunAny(my_entry, DoSome, DoneSome, in, queued, 1)
 	in.wg.Wait()
-	assert.Assert(t, running == queued)
+	assert.Assert(t, running == -1)
 	assert.Assert(t, queued == 0)
 	assert.Assert(t, f.Size(ts) == 3)
 	assert.Assert(t, r.Size() == 0)

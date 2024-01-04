@@ -62,25 +62,25 @@ func NewRunner(threads int, queue_size int) *Runner_t {
 }
 
 func (self *Runner_t) __queue(entry Entry_t, do Do, done Done, in Repack, input int, step int) (running int) {
-	if input == 0 || step == 0 {
-		return
+	if input == 0 || step == 0 || self.queue_size == 0 {
+		return -1
 	}
 	if running = input / step; input > running*step {
 		running++
 	}
 	if running > self.queue_size-len(self.qx) {
-		running = 0
-		return
+		return 0
 	}
 	in.Running(int64(running))
-	for next := 0; next < input; next += step {
+	A, B := 0, step
+	for A < input {
 		self.modules[entry.Module]++
 		self.functions[entry]++
-		if next+step < input {
-			self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: next, end: next + step, total: input}
-		} else {
-			self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: next, end: input, total: input}
+		if B > input {
+			B = input
 		}
+		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: A, end: B, total: input}
+		A, B = B, B+step
 	}
 	return
 }
@@ -114,8 +114,7 @@ func (self *Runner_t) RunModuleWait(count int, entry Entry_t, do Do, done Done, 
 	self.mx.Lock()
 	for {
 		if self.modules[entry.Module] < count {
-			running = self.__queue(entry, do, done, in, input, step)
-			if running > 0 || input == 0 || step == 0 || self.queue_size == 0 {
+			if running = self.__queue(entry, do, done, in, input, step); running != 0 {
 				break
 			}
 		}
@@ -129,8 +128,7 @@ func (self *Runner_t) RunFunctionWait(count int, entry Entry_t, do Do, done Done
 	self.mx.Lock()
 	for {
 		if self.functions[entry] < count {
-			running = self.__queue(entry, do, done, in, input, step)
-			if running > 0 || input == 0 || step == 0 || self.queue_size == 0 {
+			if running = self.__queue(entry, do, done, in, input, step); running != 0 {
 				break
 			}
 		}
