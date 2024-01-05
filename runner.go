@@ -72,15 +72,13 @@ func (self *Runner_t) __queue(entry Entry_t, do Do, done Done, in Repack, input 
 		return 0
 	}
 	in.Running(int64(running))
-	A, B := 0, step
-	for A < input {
+	for A, B := 0, step; A < input; A, B = B, B+step {
 		self.modules[entry.Module]++
 		self.functions[entry]++
 		if B > input {
 			B = input
 		}
 		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: A, end: B, total: input}
-		A, B = B, B+step
 	}
 	return
 }

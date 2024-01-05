@@ -11,19 +11,19 @@ import (
 	cache "github.com/ondi/go-ttl-cache"
 )
 
-type FilterKey_t struct {
+type key_t struct {
 	Entry Entry_t
 	Id    string
 }
 
 type Filter_t struct {
 	mx sync.Mutex
-	cx *cache.Cache_t[FilterKey_t, struct{}]
+	cx *cache.Cache_t[key_t, struct{}]
 }
 
 func NewFilter(filter_size int, filter_ttl time.Duration) (self *Filter_t) {
 	self = &Filter_t{
-		cx: cache.New(filter_size, filter_ttl, cache.Drop[FilterKey_t, struct{}]),
+		cx: cache.New(filter_size, filter_ttl, cache.Drop[key_t, struct{}]),
 	}
 	return self
 }
@@ -34,7 +34,7 @@ func (self *Filter_t) Add(ts time.Time, entry Entry_t, in Repack, length int) (a
 	for added < length {
 		_, ok = self.cx.Create(
 			ts,
-			FilterKey_t{Entry: entry, Id: in.IDString(added)},
+			key_t{Entry: entry, Id: in.IDString(added)},
 			func(*struct{}) {},
 			func(*struct{}) {},
 		)
@@ -54,7 +54,7 @@ func (self *Filter_t) Del(ts time.Time, entry Entry_t, pack Repack) (removed int
 	pack_len := pack.Len()
 	self.mx.Lock()
 	for i := 0; i < pack_len; i++ {
-		if _, ok = self.cx.Remove(ts, FilterKey_t{Entry: entry, Id: pack.IDString(i)}); ok {
+		if _, ok = self.cx.Remove(ts, key_t{Entry: entry, Id: pack.IDString(i)}); ok {
 			removed++
 		}
 	}
@@ -62,7 +62,7 @@ func (self *Filter_t) Del(ts time.Time, entry Entry_t, pack Repack) (removed int
 	return
 }
 
-func (self *Filter_t) Range(ts time.Time, fn func(key FilterKey_t, value struct{}) bool) {
+func (self *Filter_t) Range(ts time.Time, fn func(key key_t, value struct{}) bool) {
 	self.mx.Lock()
 	self.cx.Range(ts, fn)
 	self.mx.Unlock()
