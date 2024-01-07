@@ -49,12 +49,12 @@ func (self *Filter_t) Add(ts time.Time, entry Entry_t, in Repack, length int) (a
 	return
 }
 
-func (self *Filter_t) Del(ts time.Time, entry Entry_t, pack Repack) (removed int) {
+func (self *Filter_t) Del(ts time.Time, entry Entry_t, in Repack) (removed int) {
 	var ok bool
-	pack_len := pack.Len()
+	pack_len := in.Len()
 	self.mx.Lock()
 	for i := 0; i < pack_len; i++ {
-		if _, ok = self.cx.Remove(ts, key_t{Entry: entry, Id: pack.IDString(i)}); ok {
+		if _, ok = self.cx.Remove(ts, key_t{Entry: entry, Id: in.IDString(i)}); ok {
 			removed++
 		}
 	}
@@ -75,11 +75,11 @@ func (self *Filter_t) Size(ts time.Time) (res int) {
 	return
 }
 
-func ThinOut(in_len, out_len int) (out []int) {
+func ThinOut(in_len, out_len int, fn func(p int)) {
 	part_size := in_len / out_len
 	rest := in_len - out_len*part_size
 	for i := 0; i < in_len; i += part_size {
-		out = append(out, (i+i+part_size)/2)
+		fn((i + i + part_size) / 2)
 		if rest > 0 {
 			i++
 			rest--
