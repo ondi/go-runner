@@ -8,11 +8,16 @@ import (
 	"sync"
 )
 
-type Repack interface {
+type Pack interface {
 	Len() int
+	Running(i int64) int64
+}
+
+type Repack interface {
+	Pack
 	IDString(i int) string
 	Swap(i int, j int)
-	Running(i int64) int64
+	Resize(i int)
 }
 
 type Entry_t struct {

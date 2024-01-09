@@ -43,6 +43,10 @@ func (self *MyPack_t) Swap(i int, j int) {
 	self.In[i], self.In[j] = self.In[j], self.In[i]
 }
 
+func (self *MyPack_t) Resize(i int) {
+
+}
+
 func (self *MyPack_t) Running(i int64) int64 {
 	self.wg.Add(int(i))
 	return atomic.AddInt64(&self.running, i)
