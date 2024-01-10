@@ -64,6 +64,28 @@ func (self *Filter_t) Del(ts time.Time, entry Entry_t, in Repack) (removed int) 
 	return
 }
 
+func (self *Filter_t) IdAdd(ts time.Time, entry Entry_t, id string) (ok bool) {
+	self.mx.Lock()
+	_, ok = self.cx.Create(
+		ts,
+		FilterKey_t{Entry: entry, Id: id},
+		func(*struct{}) {},
+		func(*struct{}) {},
+	)
+	self.mx.Unlock()
+	return
+}
+
+func (self *Filter_t) IdDel(ts time.Time, entry Entry_t, id string) (ok bool) {
+	self.mx.Lock()
+	_, ok = self.cx.Remove(
+		ts,
+		FilterKey_t{Entry: entry, Id: id},
+	)
+	self.mx.Unlock()
+	return
+}
+
 func (self *Filter_t) Range(ts time.Time, fn func(key FilterKey_t, value struct{}) bool) {
 	self.mx.Lock()
 	self.cx.Range(ts, fn)
