@@ -32,13 +32,12 @@ func (self *Filter_t) Add(ts time.Time, entry Entry_t, in Repack, length int) (a
 	var ok bool
 	self.mx.Lock()
 	for added < length {
-		_, ok = self.cx.Create(
+		if _, ok = self.cx.Create(
 			ts,
-			FilterKey_t{Entry: entry, Id: in.IDString(added)},
+			FilterKey_t{Entry: entry, Id: in.IdAdd(added)},
 			func(*struct{}) {},
 			func(*struct{}) {},
-		)
-		if ok {
+		); ok {
 			added++
 		} else {
 			length--
@@ -54,7 +53,10 @@ func (self *Filter_t) Del(ts time.Time, entry Entry_t, in Repack) (removed int) 
 	pack_len := in.Len()
 	self.mx.Lock()
 	for i := 0; i < pack_len; i++ {
-		if _, ok = self.cx.Remove(ts, FilterKey_t{Entry: entry, Id: in.IDString(i)}); ok {
+		if _, ok = self.cx.Remove(
+			ts,
+			FilterKey_t{Entry: entry, Id: in.IdDel(i)},
+		); ok {
 			removed++
 		}
 	}

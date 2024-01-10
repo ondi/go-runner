@@ -35,7 +35,11 @@ func (self *MyPack_t) Len() int {
 	return len(self.In)
 }
 
-func (self *MyPack_t) IDString(i int) string {
+func (self *MyPack_t) IdAdd(i int) string {
+	return self.In[i]
+}
+
+func (self *MyPack_t) IdDel(i int) string {
 	return self.In[i]
 }
 

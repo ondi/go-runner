@@ -15,7 +15,8 @@ type Pack interface {
 
 type Repack interface {
 	Pack
-	IDString(i int) string
+	IdAdd(i int) string
+	IdDel(i int) string
 	Swap(i int, j int)
 	Resize(i int)
 }
