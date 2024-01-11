@@ -13,30 +13,22 @@ type Pack interface {
 	Running(i int64) int64
 }
 
-type Repack interface {
-	Pack
-	IdAdd(i int) string
-	IdDel(i int) string
-	Swap(i int, j int)
-	Resize(i int)
-}
-
 type Entry_t struct {
 	Module   string
 	Function string
 }
 
-type Do func(in Repack, begin int, end int)
-type Done func(in Repack, total int)
+type Do func(in Pack, begin int, end int)
+type Done func(in Pack, total int)
 
-func NoDo(Repack, int, int) {}
-func NoDone(Repack, int)    {}
+func NoDo(Pack, int, int) {}
+func NoDone(Pack, int)    {}
 
 type msg_t struct {
 	entry Entry_t
 	do    Do
 	done  Done
-	in    Repack
+	in    Pack
 	begin int
 	end   int
 	total int
@@ -67,7 +59,7 @@ func NewRunner(threads int, queue_size int) *Runner_t {
 	return self
 }
 
-func (self *Runner_t) __queue(entry Entry_t, do Do, done Done, in Repack, input int, step int) (running int) {
+func (self *Runner_t) __queue(entry Entry_t, do Do, done Done, in Pack, input int, step int) (running int) {
 	if input == 0 || step == 0 || self.queue_size == 0 {
 		return -1
 	}
@@ -89,14 +81,14 @@ func (self *Runner_t) __queue(entry Entry_t, do Do, done Done, in Repack, input 
 	return
 }
 
-func (self *Runner_t) RunAny(entry Entry_t, do Do, done Done, in Repack, input int, step int) (running int) {
+func (self *Runner_t) RunAny(entry Entry_t, do Do, done Done, in Pack, input int, step int) (running int) {
 	self.mx.Lock()
 	running = self.__queue(entry, do, done, in, input, step)
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunModule(count int, entry Entry_t, do Do, done Done, in Repack, input int, step int) (running int) {
+func (self *Runner_t) RunModule(count int, entry Entry_t, do Do, done Done, in Pack, input int, step int) (running int) {
 	self.mx.Lock()
 	if self.modules[entry.Module] < count {
 		running = self.__queue(entry, do, done, in, input, step)
@@ -105,7 +97,7 @@ func (self *Runner_t) RunModule(count int, entry Entry_t, do Do, done Done, in R
 	return
 }
 
-func (self *Runner_t) RunFunction(count int, entry Entry_t, do Do, done Done, in Repack, input int, step int) (running int) {
+func (self *Runner_t) RunFunction(count int, entry Entry_t, do Do, done Done, in Pack, input int, step int) (running int) {
 	self.mx.Lock()
 	if self.functions[entry] < count {
 		running = self.__queue(entry, do, done, in, input, step)
@@ -114,7 +106,7 @@ func (self *Runner_t) RunFunction(count int, entry Entry_t, do Do, done Done, in
 	return
 }
 
-func (self *Runner_t) RunModuleWait(count int, entry Entry_t, do Do, done Done, in Repack, input int, step int) (running int) {
+func (self *Runner_t) RunModuleWait(count int, entry Entry_t, do Do, done Done, in Pack, input int, step int) (running int) {
 	self.mx.Lock()
 	for {
 		if self.modules[entry.Module] < count {
@@ -128,7 +120,7 @@ func (self *Runner_t) RunModuleWait(count int, entry Entry_t, do Do, done Done, 
 	return
 }
 
-func (self *Runner_t) RunFunctionWait(count int, entry Entry_t, do Do, done Done, in Repack, input int, step int) (running int) {
+func (self *Runner_t) RunFunctionWait(count int, entry Entry_t, do Do, done Done, in Pack, input int, step int) (running int) {
 	self.mx.Lock()
 	for {
 		if self.functions[entry] < count {

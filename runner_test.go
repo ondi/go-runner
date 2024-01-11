@@ -13,12 +13,12 @@ import (
 	"gotest.tools/assert"
 )
 
-func DoSome(msg Repack, begin int, end int) {
+func DoSome(msg Pack, begin int, end int) {
 	in := msg.(*MyPack_t)
 	atomic.AddInt64(&in.do_count, 1)
 }
 
-func DoneSome(msg Repack, total int) {
+func DoneSome(msg Pack, total int) {
 	in := msg.(*MyPack_t)
 	atomic.AddInt64(&in.done_count, 1)
 }
@@ -45,10 +45,6 @@ func (self *MyPack_t) IdDel(i int) string {
 
 func (self *MyPack_t) Swap(i int, j int) {
 	self.In[i], self.In[j] = self.In[j], self.In[i]
-}
-
-func (self *MyPack_t) Resize(i int) {
-
 }
 
 func (self *MyPack_t) Running(i int64) int64 {

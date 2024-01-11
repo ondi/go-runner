@@ -11,6 +11,13 @@ import (
 	cache "github.com/ondi/go-ttl-cache"
 )
 
+type Repack interface {
+	Len() int
+	IdAdd(i int) string
+	IdDel(i int) string
+	Swap(i int, j int)
+}
+
 type FilterKey_t struct {
 	Entry Entry_t
 	Id    string
@@ -60,28 +67,6 @@ func (self *Filter_t) Del(ts time.Time, entry Entry_t, in Repack) (removed int) 
 			removed++
 		}
 	}
-	self.mx.Unlock()
-	return
-}
-
-func (self *Filter_t) IdAdd(ts time.Time, entry Entry_t, id string) (ok bool) {
-	self.mx.Lock()
-	_, ok = self.cx.Create(
-		ts,
-		FilterKey_t{Entry: entry, Id: id},
-		func(*struct{}) {},
-		func(*struct{}) {},
-	)
-	self.mx.Unlock()
-	return
-}
-
-func (self *Filter_t) IdDel(ts time.Time, entry Entry_t, id string) (ok bool) {
-	self.mx.Lock()
-	_, ok = self.cx.Remove(
-		ts,
-		FilterKey_t{Entry: entry, Id: id},
-	)
 	self.mx.Unlock()
 	return
 }
