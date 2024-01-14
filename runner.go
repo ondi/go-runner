@@ -69,16 +69,15 @@ func (self *Runner_t) __queue(entry Entry_t, do Do, done Done, in Pack, input in
 	if parts > self.queue_size-len(self.qx) {
 		return 0
 	}
-	step := input / parts
-	if input > parts*step {
-		step++
-	}
 	in.Running(int64(parts))
+	step := input / parts
+	rest := input - parts*step
 	for A, B := 0, step; A < input; A, B = B, B+step {
 		self.modules[entry.Module]++
 		self.functions[entry]++
-		if B > input {
-			B = input
+		if rest > 0 {
+			rest--
+			B++
 		}
 		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: A, end: B, total: input}
 	}

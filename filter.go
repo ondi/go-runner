@@ -85,13 +85,13 @@ func (self *Filter_t) Size(ts time.Time) (res int) {
 }
 
 func ThinOut(in_len, out_len int, fn func(p int)) {
-	part_size := in_len / out_len
-	rest := in_len - out_len*part_size
-	for i := 0; i < in_len; i += part_size {
-		fn((i + i + part_size) / 2)
+	step := in_len / out_len
+	rest := in_len - out_len*step
+	for i := 0; i < in_len; i += step {
+		fn((i + i + step) / 2)
 		if rest > 0 {
-			i++
 			rest--
+			i++
 		}
 	}
 	return
