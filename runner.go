@@ -59,61 +59,61 @@ func NewRunner(threads int, queue_size int) *Runner_t {
 	return self
 }
 
-func (self *Runner_t) __queue(entry Entry_t, do Do, done Done, in Pack, input int, parts int) int {
-	if input == 0 || parts == 0 || self.queue_size == 0 {
+func (self *Runner_t) __queue(entry Entry_t, do Do, done Done, in Pack, length int, parts int) int {
+	if length == 0 || parts == 0 || self.queue_size == 0 {
 		return -1
 	}
-	if parts > input {
-		parts = input
+	if parts > length {
+		parts = length
 	}
 	if parts > self.queue_size-len(self.qx) {
 		return 0
 	}
 	in.Running(int64(parts))
-	step := input / parts
-	rest := input - parts*step
-	for A, B := 0, step; A < input; A, B = B, B+step {
+	step := length / parts
+	rest := length - parts*step
+	for A, B := 0, step; A < length; A, B = B, B+step {
 		self.modules[entry.Module]++
 		self.functions[entry]++
 		if rest > 0 {
 			rest--
 			B++
 		}
-		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: A, end: B, total: input}
+		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: A, end: B, total: length}
 	}
 	return parts
 }
 
-func (self *Runner_t) RunAny(entry Entry_t, do Do, done Done, in Pack, input int, step int) (running int) {
+func (self *Runner_t) RunAny(entry Entry_t, do Do, done Done, in Pack, length int, parts int) (res int) {
 	self.mx.Lock()
-	running = self.__queue(entry, do, done, in, input, step)
+	res = self.__queue(entry, do, done, in, length, parts)
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunModule(count int, entry Entry_t, do Do, done Done, in Pack, input int, step int) (running int) {
+func (self *Runner_t) RunModule(count int, entry Entry_t, do Do, done Done, in Pack, length int, parts int) (res int) {
 	self.mx.Lock()
 	if self.modules[entry.Module] < count {
-		running = self.__queue(entry, do, done, in, input, step)
+		res = self.__queue(entry, do, done, in, length, parts)
 	}
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunFunction(count int, entry Entry_t, do Do, done Done, in Pack, input int, step int) (running int) {
+func (self *Runner_t) RunFunction(count int, entry Entry_t, do Do, done Done, in Pack, length int, parts int) (res int) {
 	self.mx.Lock()
 	if self.functions[entry] < count {
-		running = self.__queue(entry, do, done, in, input, step)
+		res = self.__queue(entry, do, done, in, length, parts)
 	}
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunModuleWait(count int, entry Entry_t, do Do, done Done, in Pack, input int, step int) (running int) {
+func (self *Runner_t) RunModuleWait(count int, entry Entry_t, do Do, done Done, in Pack, length int, parts int) (res int) {
 	self.mx.Lock()
 	for {
 		if self.modules[entry.Module] < count {
-			if running = self.__queue(entry, do, done, in, input, step); running != 0 {
+			if res = self.__queue(entry, do, done, in, length, parts); res != 0 {
 				break
 			}
 		}
@@ -123,11 +123,11 @@ func (self *Runner_t) RunModuleWait(count int, entry Entry_t, do Do, done Done, 
 	return
 }
 
-func (self *Runner_t) RunFunctionWait(count int, entry Entry_t, do Do, done Done, in Pack, input int, step int) (running int) {
+func (self *Runner_t) RunFunctionWait(count int, entry Entry_t, do Do, done Done, in Pack, length int, parts int) (res int) {
 	self.mx.Lock()
 	for {
 		if self.functions[entry] < count {
-			if running = self.__queue(entry, do, done, in, input, step); running != 0 {
+			if res = self.__queue(entry, do, done, in, length, parts); res != 0 {
 				break
 			}
 		}

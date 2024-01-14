@@ -61,9 +61,9 @@ func Test_add01(t *testing.T) {
 
 	in := &MyPack_t{In: []string{"test1"}}
 	queued := f.Add(ts, my_entry, in, in.Len())
-	running := r.RunAny(my_entry, DoSome, DoneSome, in, queued, 1)
+	parts := r.RunAny(my_entry, DoSome, DoneSome, in, queued, queued)
 	in.wg.Wait()
-	assert.Assert(t, running == queued)
+	assert.Assert(t, parts == queued)
 	assert.Assert(t, in.do_count == 1)
 	assert.Assert(t, in.done_count == 1, in.done_count)
 	assert.Assert(t, queued == 1)
@@ -78,9 +78,9 @@ func Test_add02(t *testing.T) {
 
 	in := &MyPack_t{In: []string{"1", "2"}}
 	queued := f.Add(ts, my_entry, in, in.Len())
-	running := r.RunAny(my_entry, DoSome, DoneSome, in, queued, 1)
+	parts := r.RunAny(my_entry, DoSome, DoneSome, in, queued, queued)
 	in.wg.Wait()
-	assert.Assert(t, running == queued)
+	assert.Assert(t, parts == queued)
 	assert.Assert(t, in.do_count == 2)
 	assert.Assert(t, in.done_count == 1)
 	assert.Assert(t, queued == 2)
@@ -95,9 +95,9 @@ func Test_add03(t *testing.T) {
 
 	in := &MyPack_t{In: []string{"1", "2", "3"}}
 	queued := f.Add(ts, my_entry, in, in.Len())
-	running := r.RunAny(my_entry, DoSome, DoneSome, in, queued, 1)
+	parts := r.RunAny(my_entry, DoSome, DoneSome, in, queued, queued)
 	in.wg.Wait()
-	assert.Assert(t, running == queued)
+	assert.Assert(t, parts == queued)
 	assert.Assert(t, in.do_count == 3)
 	assert.Assert(t, in.done_count == 1)
 	assert.Assert(t, queued == 3)
@@ -112,9 +112,9 @@ func Test_add04(t *testing.T) {
 
 	in := &MyPack_t{In: []string{"1"}}
 	queued := f.Add(ts, my_entry, in, in.Len())
-	running := r.RunAny(my_entry, DoSome, DoneSome, in, queued, 1)
+	parts := r.RunAny(my_entry, DoSome, DoneSome, in, queued, queued)
 	in.wg.Wait()
-	assert.Assert(t, running == queued)
+	assert.Assert(t, parts == queued)
 	assert.Assert(t, in.do_count == 1)
 	assert.Assert(t, in.done_count == 1)
 	assert.Assert(t, queued == 1)
@@ -123,18 +123,18 @@ func Test_add04(t *testing.T) {
 
 	in = &MyPack_t{In: []string{"2", "3"}}
 	queued = f.Add(ts, my_entry, in, in.Len())
-	running = r.RunAny(my_entry, DoSome, DoneSome, in, queued, 1)
+	parts = r.RunAny(my_entry, DoSome, DoneSome, in, queued, queued)
 	in.wg.Wait()
 	assert.Assert(t, queued == 2)
-	assert.Assert(t, running > 0)
+	assert.Assert(t, parts > 0)
 	assert.Assert(t, f.Size(ts) == 3)
 	assert.Assert(t, r.Size() == 0)
 
 	in = &MyPack_t{In: []string{"2", "3"}}
 	queued = f.Add(ts, my_entry, in, in.Len())
-	running = r.RunAny(my_entry, DoSome, DoneSome, in, queued, 1)
+	parts = r.RunAny(my_entry, DoSome, DoneSome, in, queued, queued)
 	in.wg.Wait()
-	assert.Assert(t, running == -1)
+	assert.Assert(t, parts == -1)
 	assert.Assert(t, queued == 0)
 	assert.Assert(t, f.Size(ts) == 3)
 	assert.Assert(t, r.Size() == 0)
@@ -147,18 +147,18 @@ func Test_add05(t *testing.T) {
 
 	in := &MyPack_t{In: []string{"1"}}
 	queued := f.Add(ts, my_entry, in, in.Len())
-	running := r.RunAny(my_entry, DoSome, DoneSome, in, queued, 1)
+	parts := r.RunAny(my_entry, DoSome, DoneSome, in, queued, queued)
 	in.wg.Wait()
-	assert.Assert(t, running == queued)
+	assert.Assert(t, parts == queued)
 	assert.Assert(t, queued == 1)
 	assert.Assert(t, f.Size(ts) == 1)
 	assert.Assert(t, r.Size() == 0)
 
 	in = &MyPack_t{In: []string{"2", "3"}}
 	queued = f.Add(ts, my_entry, in, in.Len())
-	running = r.RunAny(my_entry, DoSome, DoneSome, in, queued, 1)
+	parts = r.RunAny(my_entry, DoSome, DoneSome, in, queued, queued)
 	in.wg.Wait()
-	assert.Assert(t, running == queued)
+	assert.Assert(t, parts == queued)
 	assert.Assert(t, queued == 2)
 	assert.Assert(t, f.Size(ts) == 3)
 	assert.Assert(t, r.Size() == 0)
@@ -183,9 +183,9 @@ func Test_add06(t *testing.T) {
 
 	in := &MyPack_t{In: []string{"1", "2"}}
 	queued := f.Add(ts, my_entry, in, in.Len())
-	running := r.RunAny(my_entry, DoSome, DoneSome, in, queued, 1)
+	parts := r.RunAny(my_entry, DoSome, DoneSome, in, queued, queued)
 	in.wg.Wait()
-	assert.Assert(t, running == queued)
+	assert.Assert(t, parts == queued)
 	assert.Assert(t, queued == 2)
 	ts = ts.Add(-10 * time.Second)
 	assert.Assert(t, f.Size(ts) == 2)
@@ -199,9 +199,9 @@ func Test_add07(t *testing.T) {
 
 	in := &MyPack_t{In: []string{"1", "2"}}
 	queued := f.Add(ts, my_entry, in, in.Len())
-	running := r.RunAny(my_entry, DoSome, DoneSome, in, queued, 1)
+	parts := r.RunAny(my_entry, DoSome, DoneSome, in, queued, queued)
 	in.wg.Wait()
-	assert.Assert(t, running == queued)
+	assert.Assert(t, parts == queued)
 	assert.Assert(t, queued == 2)
 	ts = ts.Add(10 * time.Second)
 	assert.Assert(t, f.Size(ts) == 0)
@@ -215,9 +215,9 @@ func Test_add08(t *testing.T) {
 
 	in := &MyPack_t{In: []string{"1", "2"}}
 	queued := f.Add(ts, my_entry, in, in.Len())
-	running := r.RunAny(my_entry, DoSome, DoneSome, in, queued, 1)
+	parts := r.RunAny(my_entry, DoSome, DoneSome, in, queued, queued)
 	in.wg.Wait()
-	assert.Assert(t, running == queued)
+	assert.Assert(t, parts == queued)
 	assert.Assert(t, queued == 2)
 	assert.Assert(t, f.Size(ts) == 2)
 	assert.Assert(t, r.Size() == 0)
@@ -242,9 +242,9 @@ func Test_add09(t *testing.T) {
 
 	in := &MyPack_t{In: []string{"1", "2"}}
 	queued := f.Add(ts, my_entry, in, in.Len())
-	running := r.RunAny(my_entry, DoSome, DoneSome, in, queued, 1)
+	parts := r.RunAny(my_entry, DoSome, DoneSome, in, queued, queued)
 	in.wg.Wait()
-	assert.Assert(t, running == queued)
+	assert.Assert(t, parts == queued)
 	assert.Assert(t, queued == 2)
 	assert.Assert(t, f.Size(ts) == 2)
 	assert.Assert(t, r.Size() == 0)
@@ -269,9 +269,9 @@ func Test_add10(t *testing.T) {
 
 	in := &MyPack_t{In: []string{"1", "1", "2"}}
 	queued := f.Add(ts, my_entry, in, in.Len())
-	running := r.RunAny(my_entry, DoSome, DoneSome, in, queued, 1)
+	parts := r.RunAny(my_entry, DoSome, DoneSome, in, queued, queued)
 	in.wg.Wait()
-	assert.Assert(t, running == queued)
+	assert.Assert(t, parts == queued)
 	assert.Assert(t, queued == 2)
 }
 
@@ -282,9 +282,9 @@ func Test_add11(t *testing.T) {
 
 	in := &MyPack_t{In: []string{"1", "1", "1", "2", "2", "2"}}
 	queued := in.Len()
-	running := r.RunAny(my_entry, DoSome, DoneSome, in, queued, 1)
+	parts := r.RunAny(my_entry, DoSome, DoneSome, in, queued, queued)
 	in.wg.Wait()
-	assert.Assert(t, running == queued)
+	assert.Assert(t, parts == queued)
 	assert.Assert(t, queued == 6)
 }
 
@@ -295,8 +295,8 @@ func Test_add12(t *testing.T) {
 
 	in := &MyPack_t{In: []string{"1", "1", "1", "2", "2", "2"}}
 	queued := f.Add(ts, my_entry, in, in.Len())
-	running := r.RunAny(my_entry, DoSome, DoneSome, in, queued, 1)
+	parts := r.RunAny(my_entry, DoSome, DoneSome, in, queued, queued)
 	in.wg.Wait()
-	assert.Assert(t, running == queued)
+	assert.Assert(t, parts == queued)
 	assert.Assert(t, queued == 6)
 }
