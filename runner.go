@@ -59,17 +59,21 @@ func NewRunner(threads int, queue_size int) *Runner_t {
 	return self
 }
 
-func (self *Runner_t) __queue(entry Entry_t, do Do, done Done, in Pack, input int, step int) (running int) {
-	if input == 0 || step == 0 || self.queue_size == 0 {
+func (self *Runner_t) __queue(entry Entry_t, do Do, done Done, in Pack, input int, parts int) int {
+	if input == 0 || parts == 0 || self.queue_size == 0 {
 		return -1
 	}
-	if running = input / step; input > running*step {
-		running++
+	if parts > input {
+		parts = input
 	}
-	if running > self.queue_size-len(self.qx) {
+	if parts > self.queue_size-len(self.qx) {
 		return 0
 	}
-	in.Running(int64(running))
+	step := input / parts
+	if input > parts*step {
+		step++
+	}
+	in.Running(int64(parts))
 	for A, B := 0, step; A < input; A, B = B, B+step {
 		self.modules[entry.Module]++
 		self.functions[entry]++
@@ -78,7 +82,7 @@ func (self *Runner_t) __queue(entry Entry_t, do Do, done Done, in Pack, input in
 		}
 		self.qx <- msg_t{entry: entry, do: do, done: done, in: in, begin: A, end: B, total: input}
 	}
-	return
+	return parts
 }
 
 func (self *Runner_t) RunAny(entry Entry_t, do Do, done Done, in Pack, input int, step int) (running int) {
