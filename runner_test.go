@@ -18,7 +18,7 @@ func DoSome(msg Pack, begin int, end int) {
 	atomic.AddInt64(&in.do_count, 1)
 }
 
-func DoneSome(msg Pack, total int) {
+func DoneSome(msg Pack, begin int, end int) {
 	in := msg.(*MyPack_t)
 	atomic.AddInt64(&in.done_count, 1)
 }

@@ -19,15 +19,13 @@ type Entry_t struct {
 }
 
 type Do func(in Pack, begin int, end int)
-type Done func(in Pack, total int)
 
 func NoDo(Pack, int, int) {}
-func NoDone(Pack, int)    {}
 
 type msg_t struct {
 	entry Entry_t
 	do    Do
-	done  Done
+	done  Do
 	in    Pack
 	begin int
 	end   int
@@ -59,7 +57,7 @@ func NewRunner(threads int, queue_size int) *Runner_t {
 	return self
 }
 
-func (self *Runner_t) __queue(entry Entry_t, do Do, done Done, in Pack, length int, parts int) int {
+func (self *Runner_t) __queue(entry Entry_t, do Do, done Do, in Pack, length int, parts int) int {
 	if length == 0 || parts == 0 || self.queue_size == 0 {
 		return -1
 	}
@@ -84,14 +82,14 @@ func (self *Runner_t) __queue(entry Entry_t, do Do, done Done, in Pack, length i
 	return parts
 }
 
-func (self *Runner_t) RunAny(entry Entry_t, do Do, done Done, in Pack, length int, parts int) (res int) {
+func (self *Runner_t) RunAny(entry Entry_t, do Do, done Do, in Pack, length int, parts int) (res int) {
 	self.mx.Lock()
 	res = self.__queue(entry, do, done, in, length, parts)
 	self.mx.Unlock()
 	return
 }
 
-func (self *Runner_t) RunModule(count int, entry Entry_t, do Do, done Done, in Pack, length int, parts int) (res int) {
+func (self *Runner_t) RunModule(count int, entry Entry_t, do Do, done Do, in Pack, length int, parts int) (res int) {
 	self.mx.Lock()
 	if self.modules[entry.Module] < count {
 		res = self.__queue(entry, do, done, in, length, parts)
@@ -100,7 +98,7 @@ func (self *Runner_t) RunModule(count int, entry Entry_t, do Do, done Done, in P
 	return
 }
 
-func (self *Runner_t) RunFunction(count int, entry Entry_t, do Do, done Done, in Pack, length int, parts int) (res int) {
+func (self *Runner_t) RunFunction(count int, entry Entry_t, do Do, done Do, in Pack, length int, parts int) (res int) {
 	self.mx.Lock()
 	if self.functions[entry] < count {
 		res = self.__queue(entry, do, done, in, length, parts)
@@ -109,7 +107,7 @@ func (self *Runner_t) RunFunction(count int, entry Entry_t, do Do, done Done, in
 	return
 }
 
-func (self *Runner_t) RunModuleWait(count int, entry Entry_t, do Do, done Done, in Pack, length int, parts int) (res int) {
+func (self *Runner_t) RunModuleWait(count int, entry Entry_t, do Do, done Do, in Pack, length int, parts int) (res int) {
 	self.mx.Lock()
 	for {
 		if self.modules[entry.Module] < count {
@@ -123,7 +121,7 @@ func (self *Runner_t) RunModuleWait(count int, entry Entry_t, do Do, done Done, 
 	return
 }
 
-func (self *Runner_t) RunFunctionWait(count int, entry Entry_t, do Do, done Done, in Pack, length int, parts int) (res int) {
+func (self *Runner_t) RunFunctionWait(count int, entry Entry_t, do Do, done Do, in Pack, length int, parts int) (res int) {
 	self.mx.Lock()
 	for {
 		if self.functions[entry] < count {
@@ -142,7 +140,7 @@ func (self *Runner_t) run() {
 	for v := range self.qx {
 		v.do(v.in, v.begin, v.end)
 		if v.in.Running(-1) == 0 {
-			v.done(v.in, v.total)
+			v.done(v.in, 0, v.total)
 		}
 		self.mx.Lock()
 		if temp := self.modules[v.entry.Module]; temp == 1 {
