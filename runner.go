@@ -67,9 +67,10 @@ func (self *Runner_t) __queue(entry Entry_t, do Do, done Do, in Pack, length int
 	if parts > self.queue_size-len(self.qx) {
 		return 0
 	}
-	in.Running(int64(parts))
 	step := length / parts
 	rest := length - parts*step
+	// (length - rest) / step
+	in.Running(int64(parts))
 	for A, B := 0, step; A < length; A, B = B, B+step {
 		self.modules[entry.Module]++
 		self.functions[entry]++
