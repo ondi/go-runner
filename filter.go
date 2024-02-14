@@ -13,8 +13,8 @@ import (
 
 type Repack interface {
 	Len() int
-	IdAdd(i int) string
-	IdDel(i int) string
+	FilterAdd(i int) string
+	FilterDel(i int) string
 	Swap(i int, j int)
 }
 
@@ -41,7 +41,7 @@ func (self *Filter_t) Add(ts time.Time, entry Entry_t, in Repack, length int) (a
 	for added < length {
 		if _, ok = self.cx.Create(
 			ts,
-			FilterKey_t{Entry: entry, Id: in.IdAdd(added)},
+			FilterKey_t{Entry: entry, Id: in.FilterAdd(added)},
 			func(*struct{}) {},
 			func(*struct{}) {},
 		); ok {
@@ -62,7 +62,7 @@ func (self *Filter_t) Del(ts time.Time, entry Entry_t, in Repack) (removed int) 
 	for i := 0; i < pack_len; i++ {
 		if _, ok = self.cx.Remove(
 			ts,
-			FilterKey_t{Entry: entry, Id: in.IdDel(i)},
+			FilterKey_t{Entry: entry, Id: in.FilterDel(i)},
 		); ok {
 			removed++
 		}
