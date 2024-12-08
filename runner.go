@@ -65,7 +65,6 @@ func (self *Runner_t) __queue(entry Entry_t, do Do, done Do, in Pack, length int
 		parts = self.queue_size - len(self.qx)
 	}
 	if parts <= 0 {
-		in.Running(0)
 		return 0
 	}
 	in.Running(int64(parts))
@@ -87,9 +86,9 @@ func (self *Runner_t) RunAny(entry Entry_t, do Do, done Do, in Pack, length int,
 	self.mx.Lock()
 	res = self.__queue(entry, do, done, in, length, parts)
 	self.mx.Unlock()
-	// if res <= 0 {
-	// 	done(in, 0, 0)
-	// }
+	if res == 0 {
+		done(in, 0, 0)
+	}
 	return
 }
 
@@ -99,9 +98,9 @@ func (self *Runner_t) RunModule(count int, entry Entry_t, do Do, done Do, in Pac
 		res = self.__queue(entry, do, done, in, length, parts)
 	}
 	self.mx.Unlock()
-	// if res <= 0 {
-	// 	done(in, 0, 0)
-	// }
+	if res == 0 {
+		done(in, 0, 0)
+	}
 	return
 }
 
@@ -111,9 +110,9 @@ func (self *Runner_t) RunFunction(count int, entry Entry_t, do Do, done Do, in P
 		res = self.__queue(entry, do, done, in, length, parts)
 	}
 	self.mx.Unlock()
-	// if res <= 0 {
-	// 	done(in, 0, 0)
-	// }
+	if res == 0 {
+		done(in, 0, 0)
+	}
 	return
 }
 
@@ -127,9 +126,9 @@ func (self *Runner_t) RunModuleWait(count int, entry Entry_t, do Do, done Do, in
 		self.wc.Wait()
 	}
 	self.mx.Unlock()
-	// if res <= 0 {
-	// 	done(in, 0, 0)
-	// }
+	if res == 0 {
+		done(in, 0, 0)
+	}
 	return
 }
 
@@ -143,9 +142,9 @@ func (self *Runner_t) RunFunctionWait(count int, entry Entry_t, do Do, done Do, 
 		self.wc.Wait()
 	}
 	self.mx.Unlock()
-	// if res <= 0 {
-	// 	done(in, 0, 0)
-	// }
+	if res == 0 {
+		done(in, 0, 0)
+	}
 	return
 }
 
