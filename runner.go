@@ -58,19 +58,19 @@ func NewRunner(threads int, queue_size int) *Runner_t {
 }
 
 func (self *Runner_t) __queue(entry Entry_t, do Do, done Do, in Pack, length int, parts int) int {
-	if length == 0 || parts == 0 || self.queue_size == 0 {
-		return -1
-	}
 	if parts > length {
 		parts = length
 	}
 	if parts > self.queue_size-len(self.qx) {
+		parts = self.queue_size - len(self.qx)
+	}
+	if parts <= 0 {
+		in.Running(0)
 		return 0
 	}
+	in.Running(int64(parts))
 	step := length / parts
 	rest := length - parts*step
-	// (length - rest) / step
-	in.Running(int64(parts))
 	for A, B := 0, step; A < length; A, B = B, B+step {
 		self.modules[entry.Module]++
 		self.functions[entry]++

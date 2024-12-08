@@ -134,7 +134,7 @@ func Test_add04(t *testing.T) {
 	queued = f.Add(ts, my_entry, in, in.Len())
 	parts = r.RunAny(my_entry, DoSome, DoneSome, in, queued, queued)
 	in.wg.Wait()
-	assert.Assert(t, parts == -1)
+	assert.Assert(t, parts == 0)
 	assert.Assert(t, queued == 0)
 	assert.Assert(t, f.Size(ts) == 3)
 	assert.Assert(t, r.Size() == 0)
@@ -299,4 +299,32 @@ func Test_add12(t *testing.T) {
 	in.wg.Wait()
 	assert.Assert(t, parts == queued)
 	assert.Assert(t, queued == 6)
+}
+
+func Test_add13(t *testing.T) {
+	r := NewRunner(0, 10)
+
+	var parts int
+	for i := 0; i < 20; i++ {
+		in := &MyPack_t{In: []string{"1", "1", "1", "2", "2", "2"}}
+		parts = r.RunAny(
+			my_entry,
+			func(msg Pack, begin int, end int) {
+				DoSome(msg, begin, end)
+				time.Sleep(5 * time.Second)
+			},
+			func(msg Pack, begin int, end int) {
+				DoneSome(msg, begin, end)
+			},
+			in,
+			in.Len(),
+			1,
+		)
+		t.Logf("parts=%v", parts)
+		if i < 10 {
+			assert.Assert(t, parts == 1, parts)
+		} else {
+			assert.Assert(t, parts == 0, parts)
+		}
+	}
 }
