@@ -102,6 +102,7 @@ func (self *Runner_t) __decrease(entry Entry_t, n int) {
 }
 
 func (self *Runner_t) RunAny(entry Entry_t, do Do, done Done, in Pack, length int, parts int) (res int) {
+	res = -1
 	self.mx.Lock()
 	if res = self.__queue(entry, do, done, in, length, parts); res > 0 {
 		self.__increase(entry, res)
@@ -119,6 +120,7 @@ func (self *Runner_t) RunAny(entry Entry_t, do Do, done Done, in Pack, length in
 }
 
 func (self *Runner_t) RunModule(count int, entry Entry_t, do Do, done Done, in Pack, length int, parts int) (res int) {
+	res = -1
 	self.mx.Lock()
 	if self.modules[entry.Module] < count {
 		if res = self.__queue(entry, do, done, in, length, parts); res > 0 {
@@ -138,6 +140,7 @@ func (self *Runner_t) RunModule(count int, entry Entry_t, do Do, done Done, in P
 }
 
 func (self *Runner_t) RunFunction(count int, entry Entry_t, do Do, done Done, in Pack, length int, parts int) (res int) {
+	res = -1
 	self.mx.Lock()
 	if self.functions[entry] < count {
 		if res = self.__queue(entry, do, done, in, length, parts); res > 0 {
@@ -157,6 +160,7 @@ func (self *Runner_t) RunFunction(count int, entry Entry_t, do Do, done Done, in
 }
 
 func (self *Runner_t) RunModuleWait(count int, entry Entry_t, do Do, done Done, in Pack, length int, parts int) (res int) {
+	res = -1
 	self.mx.Lock()
 	for {
 		if self.modules[entry.Module] < count {
@@ -180,6 +184,7 @@ func (self *Runner_t) RunModuleWait(count int, entry Entry_t, do Do, done Done, 
 }
 
 func (self *Runner_t) RunFunctionWait(count int, entry Entry_t, do Do, done Done, in Pack, length int, parts int) (res int) {
+	res = -1
 	self.mx.Lock()
 	for {
 		if self.functions[entry] < count {
