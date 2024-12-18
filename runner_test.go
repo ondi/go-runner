@@ -55,7 +55,7 @@ func (self *MyPack_t) Running(i int64) int64 {
 var my_entry = Entry_t{Module: "default", Function: "default"}
 
 func Test_add01(t *testing.T) {
-	r := NewRunner(10, 1)
+	r := NewRunner[Pack](10, 1)
 	f := NewFilter(100, 15*time.Second)
 	ts := time.Now()
 
@@ -72,7 +72,7 @@ func Test_add01(t *testing.T) {
 }
 
 func Test_add02(t *testing.T) {
-	r := NewRunner(10, 2)
+	r := NewRunner[Pack](10, 2)
 	f := NewFilter(100, 15*time.Second)
 	ts := time.Now()
 
@@ -89,7 +89,7 @@ func Test_add02(t *testing.T) {
 }
 
 func Test_add03(t *testing.T) {
-	r := NewRunner(10, 3)
+	r := NewRunner[Pack](10, 3)
 	f := NewFilter(100, 15*time.Second)
 	ts := time.Now()
 
@@ -106,7 +106,7 @@ func Test_add03(t *testing.T) {
 }
 
 func Test_add04(t *testing.T) {
-	r := NewRunner(10, 2)
+	r := NewRunner[Pack](10, 2)
 	f := NewFilter(100, 15*time.Second)
 	ts := time.Now()
 
@@ -141,7 +141,7 @@ func Test_add04(t *testing.T) {
 }
 
 func Test_add05(t *testing.T) {
-	r := NewRunner(10, 2)
+	r := NewRunner[Pack](10, 2)
 	f := NewFilter(100, 15*time.Second)
 	ts := time.Now()
 
@@ -177,7 +177,7 @@ func Test_add05(t *testing.T) {
 }
 
 func Test_add06(t *testing.T) {
-	r := NewRunner(10, 2)
+	r := NewRunner[Pack](10, 2)
 	f := NewFilter(100, 5*time.Second)
 	ts := time.Now()
 
@@ -193,7 +193,7 @@ func Test_add06(t *testing.T) {
 }
 
 func Test_add07(t *testing.T) {
-	r := NewRunner(10, 2)
+	r := NewRunner[Pack](10, 2)
 	f := NewFilter(100, 5*time.Second)
 	ts := time.Now()
 
@@ -209,7 +209,7 @@ func Test_add07(t *testing.T) {
 }
 
 func Test_add08(t *testing.T) {
-	r := NewRunner(10, 2)
+	r := NewRunner[Pack](10, 2)
 	f := NewFilter(100, 5*time.Second)
 	ts := time.Now()
 
@@ -236,7 +236,7 @@ func Test_add08(t *testing.T) {
 }
 
 func Test_add09(t *testing.T) {
-	r := NewRunner(10, 2)
+	r := NewRunner[Pack](10, 2)
 	f := NewFilter(100, 5*time.Second)
 	ts := time.Now()
 
@@ -263,7 +263,7 @@ func Test_add09(t *testing.T) {
 }
 
 func Test_add10(t *testing.T) {
-	r := NewRunner(10, 3)
+	r := NewRunner[Pack](10, 3)
 	f := NewFilter(100, 5*time.Second)
 	ts := time.Now()
 
@@ -276,7 +276,7 @@ func Test_add10(t *testing.T) {
 }
 
 func Test_add11(t *testing.T) {
-	r := NewRunner(10, 10)
+	r := NewRunner[Pack](10, 10)
 	// f := NewFilter(100, 5*time.Second)
 	// ts := time.Now()
 
@@ -289,7 +289,7 @@ func Test_add11(t *testing.T) {
 }
 
 func Test_add12(t *testing.T) {
-	r := NewRunner(10, 10)
+	r := NewRunner[Pack](10, 10)
 	f := NewFilter(0, 0)
 	ts := time.Now()
 
