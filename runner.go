@@ -204,7 +204,6 @@ func (self *Runner_t) RunFunctionWait(count int, entry Entry_t, do Do, done Done
 }
 
 func (self *Runner_t) run() {
-	defer self.wg.Done()
 	for v := range self.qx {
 		v.do(v.in, v.begin, v.end)
 		if v.in.Running(-1) == 0 {
@@ -214,6 +213,7 @@ func (self *Runner_t) run() {
 		self.__decrease(v.entry, 1)
 		self.mx.Unlock()
 	}
+	self.wg.Done()
 }
 
 func (self *Runner_t) RangeModule(fn func(key string, value int) bool) {
