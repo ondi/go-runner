@@ -99,6 +99,7 @@ func (self *Runner_t) __decrease(entry Entry_t, n int) {
 	} else if temp > n {
 		self.functions[entry] -= n
 	}
+	self.wc.Broadcast()
 }
 
 func (self *Runner_t) RunAny(entry Entry_t, do Do, done Done, in Pack, length int, parts int) (res int) {
@@ -211,7 +212,6 @@ func (self *Runner_t) run() {
 		}
 		self.mx.Lock()
 		self.__decrease(v.entry, 1)
-		self.wc.Broadcast()
 		self.mx.Unlock()
 	}
 }
