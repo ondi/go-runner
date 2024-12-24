@@ -89,14 +89,14 @@ func (self *Runner_t) __increase(entry Entry_t, n int) {
 
 func (self *Runner_t) __decrease(entry Entry_t, n int) {
 	var temp int
-	if temp = self.modules[entry.Module]; temp == n {
+	if temp = self.modules[entry.Module]; temp <= n {
 		delete(self.modules, entry.Module)
-	} else if temp > n {
+	} else {
 		self.modules[entry.Module] -= n
 	}
-	if temp = self.functions[entry]; temp == n {
+	if temp = self.functions[entry]; temp <= n {
 		delete(self.functions, entry)
-	} else if temp > n {
+	} else {
 		self.functions[entry] -= n
 	}
 	self.wc.Broadcast()
