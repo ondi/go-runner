@@ -106,16 +106,14 @@ func (self *Runner_t) RunAny(entry Entry_t, do Do, done Done, in Pack, length in
 	self.mx.Lock()
 	if res = self.__queue(entry, do, done, in, length, parts); res == -1 {
 		self.__increase(entry, 1)
+		self.mx.Unlock()
+		done(in, 0)
+		self.mx.Lock()
+		self.__decrease(entry, 1)
 	} else {
 		self.__increase(entry, res)
 	}
 	self.mx.Unlock()
-	if res == -1 {
-		done(in, 0)
-		self.mx.Lock()
-		self.__decrease(entry, 1)
-		self.mx.Unlock()
-	}
 	return
 }
 
@@ -124,17 +122,15 @@ func (self *Runner_t) RunModule(count int, entry Entry_t, do Do, done Done, in P
 	if self.modules[entry.Module] < count {
 		if res = self.__queue(entry, do, done, in, length, parts); res == -1 {
 			self.__increase(entry, 1)
+			self.mx.Unlock()
+			done(in, 0)
+			self.mx.Lock()
+			self.__decrease(entry, 1)
 		} else {
 			self.__increase(entry, res)
 		}
 	}
 	self.mx.Unlock()
-	if res == -1 {
-		done(in, 0)
-		self.mx.Lock()
-		self.__decrease(entry, 1)
-		self.mx.Unlock()
-	}
 	return
 }
 
@@ -143,17 +139,15 @@ func (self *Runner_t) RunFunction(count int, entry Entry_t, do Do, done Done, in
 	if self.functions[entry] < count {
 		if res = self.__queue(entry, do, done, in, length, parts); res == -1 {
 			self.__increase(entry, 1)
+			self.mx.Unlock()
+			done(in, 0)
+			self.mx.Lock()
+			self.__decrease(entry, 1)
 		} else {
 			self.__increase(entry, res)
 		}
 	}
 	self.mx.Unlock()
-	if res == -1 {
-		done(in, 0)
-		self.mx.Lock()
-		self.__decrease(entry, 1)
-		self.mx.Unlock()
-	}
 	return
 }
 
@@ -163,6 +157,10 @@ func (self *Runner_t) RunModuleWait(count int, entry Entry_t, do Do, done Done, 
 		if self.modules[entry.Module] < count {
 			if res = self.__queue(entry, do, done, in, length, parts); res == -1 {
 				self.__increase(entry, 1)
+				self.mx.Unlock()
+				done(in, 0)
+				self.mx.Lock()
+				self.__decrease(entry, 1)
 			} else {
 				self.__increase(entry, res)
 			}
@@ -171,12 +169,6 @@ func (self *Runner_t) RunModuleWait(count int, entry Entry_t, do Do, done Done, 
 		self.wc.Wait()
 	}
 	self.mx.Unlock()
-	if res == -1 {
-		done(in, 0)
-		self.mx.Lock()
-		self.__decrease(entry, 1)
-		self.mx.Unlock()
-	}
 	return
 }
 
@@ -186,6 +178,10 @@ func (self *Runner_t) RunFunctionWait(count int, entry Entry_t, do Do, done Done
 		if self.functions[entry] < count {
 			if res = self.__queue(entry, do, done, in, length, parts); res == -1 {
 				self.__increase(entry, 1)
+				self.mx.Unlock()
+				done(in, 0)
+				self.mx.Lock()
+				self.__decrease(entry, 1)
 			} else {
 				self.__increase(entry, res)
 			}
@@ -194,12 +190,6 @@ func (self *Runner_t) RunFunctionWait(count int, entry Entry_t, do Do, done Done
 		self.wc.Wait()
 	}
 	self.mx.Unlock()
-	if res == -1 {
-		done(in, 0)
-		self.mx.Lock()
-		self.__decrease(entry, 1)
-		self.mx.Unlock()
-	}
 	return
 }
 
