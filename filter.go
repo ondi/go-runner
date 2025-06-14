@@ -94,5 +94,4 @@ func ThinOut(len_in, len_out int, fn func(p int)) {
 		}
 		fn((i + i + step) / 2)
 	}
-	return
 }
